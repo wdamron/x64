@@ -74,6 +74,18 @@ func (a *Assembler) Inst(inst Inst, args ...Arg) error {
 // Write raw data to the encoding buffer.
 func (a *Assembler) Raw(data []byte) { a.b.Bytes(data) }
 
+// Write a raw byte to the encoding buffer.
+func (a *Assembler) RawByte(b byte) { a.b.Byte(b) }
+
+// Write a raw 16-bit integer to the encoding buffer.
+func (a *Assembler) Raw16(i int16) { a.b.Int16(i) }
+
+// Write a raw 32-bit integer to the encoding buffer.
+func (a *Assembler) Raw32(i int32) { a.b.Int32(i) }
+
+// Write a raw 64-bit integer to the encoding buffer.
+func (a *Assembler) Raw64(i int64) { a.b.Int64(i) }
+
 // Create a new label at the current PC. To update the PC assigned to the label, call the SetLabel
 // method with the label when the PC reaches the desired offset -- this must be done before calling
 // the ProcessRelocs method.
@@ -86,6 +98,9 @@ func (a *Assembler) NewLabel() Label {
 
 // Update the PC assigned to the label using the current PC.
 func (a *Assembler) SetLabel(label Label) { a.labels[label.id].pc = a.PC() }
+
+// Update the PC assigned to the label using the given PC.
+func (a *Assembler) SetLabelPC(label Label, pc uint32) { a.labels[label.id].pc = pc }
 
 func (a *Assembler) reloc(labelId uint16, dispSize uint8) {
 	a.relocs = append(a.relocs, reloc{

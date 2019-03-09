@@ -171,19 +171,19 @@ SEARCH:
 			// check size
 			switch sz {
 			case 'b':
-				if argsz != 1 {
+				if argsz > 1 {
 					continue SEARCH
 				}
 			case 'w':
-				if argsz != 2 {
+				if argsz > 2 {
 					continue SEARCH
 				}
 			case 'd':
-				if argsz != 4 {
+				if argsz > 4 {
 					continue SEARCH
 				}
 			case 'q':
-				if argsz != 8 {
+				if argsz > 8 {
 					continue SEARCH
 				}
 			case 'f':

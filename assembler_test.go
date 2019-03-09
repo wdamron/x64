@@ -59,6 +59,10 @@ func TestEncode(t *testing.T) {
 			t.Fatalf("decoded inst = %s != %s", intel, expect)
 		}
 	}
+	check("mov al, 0x1", MOV, AL, Imm8(1))
+	check("mov ah, 0x1", MOV, AH, Imm8(1))
+	check("mov ax, 0x1", MOV, AX, Imm8(1)) // Imm8 will be auto-expanded to Imm16
+	check("mov ax, 0x1", MOV, AX, Imm16(1))
 	check("mov rax, r13", MOV, RAX, R13)
 	check("add rax, rbx", ADD, RAX, RBX)
 	check("add rax, 0x1", ADD, RAX, Imm8(1))
