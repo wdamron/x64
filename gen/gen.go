@@ -63,10 +63,18 @@ func main() {
 		if mne == "prefetchwt1" || mne == "invpcid" {
 			continue
 		}
-		ms = append(ms, mnemonic{mne, specs, -1, -1})
+		x64specs := make([]spec, 0, len(specs))
 		for _, spec := range specs {
+			if spec.flags&X86_ONLY != 0 {
+				continue
+			}
 			pset[spec.pattern] = -1
+			x64specs = append(x64specs, spec)
 		}
+		if len(x64specs) == 0 {
+			continue
+		}
+		ms = append(ms, mnemonic{mne, x64specs, -1, -1})
 	}
 	ps := make([]string, 0, len(pset))
 	for p, _ := range pset {

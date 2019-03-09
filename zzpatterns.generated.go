@@ -38,10 +38,6 @@ package x64
 const (
 	argp_ uint8 = iota
 	argp_Aw
-	argp_Qw
-	argp_Rw
-	argp_Sw
-	argp_Tw
 	argp_Uw
 	argp_Vw
 	argp_fp
@@ -52,7 +48,6 @@ const (
 	argp_m0
 	argp_mb
 	argp_md
-	argp_mf
 	argp_mo
 	argp_mp
 	argp_mq
@@ -98,13 +93,11 @@ const (
 	argp_ibAb
 	argp_ibAd
 	argp_ibAw
-	argp_idiw
 	argp_iqAb
 	argp_iqAd
 	argp_iqAq
 	argp_iqAw
 	argp_iwib
-	argp_iwiw
 	argp_m1bo
 	argp_m1yo
 	argp_m0i0
@@ -178,7 +171,6 @@ const (
 	argp_vqrq
 	argp_vqxq
 	argp_vqyo
-	argp_vwrw
 	argp_whyh
 	argp_woyo
 	argp_xqib
@@ -295,10 +287,6 @@ const (
 var argpFormats = [...][8]byte{
 	[8]byte{0, 0, 0, 0, 0, 0, 0, 0},
 	[8]byte{'A', 'w', 0, 0, 0, 0, 0, 0},
-	[8]byte{'Q', 'w', 0, 0, 0, 0, 0, 0},
-	[8]byte{'R', 'w', 0, 0, 0, 0, 0, 0},
-	[8]byte{'S', 'w', 0, 0, 0, 0, 0, 0},
-	[8]byte{'T', 'w', 0, 0, 0, 0, 0, 0},
 	[8]byte{'U', 'w', 0, 0, 0, 0, 0, 0},
 	[8]byte{'V', 'w', 0, 0, 0, 0, 0, 0},
 	[8]byte{'f', 'p', 0, 0, 0, 0, 0, 0},
@@ -309,7 +297,6 @@ var argpFormats = [...][8]byte{
 	[8]byte{'m', '0', 0, 0, 0, 0, 0, 0},
 	[8]byte{'m', 'b', 0, 0, 0, 0, 0, 0},
 	[8]byte{'m', 'd', 0, 0, 0, 0, 0, 0},
-	[8]byte{'m', 'f', 0, 0, 0, 0, 0, 0},
 	[8]byte{'m', 'o', 0, 0, 0, 0, 0, 0},
 	[8]byte{'m', 'p', 0, 0, 0, 0, 0, 0},
 	[8]byte{'m', 'q', 0, 0, 0, 0, 0, 0},
@@ -355,13 +342,11 @@ var argpFormats = [...][8]byte{
 	[8]byte{'i', 'b', 'A', 'b', 0, 0, 0, 0},
 	[8]byte{'i', 'b', 'A', 'd', 0, 0, 0, 0},
 	[8]byte{'i', 'b', 'A', 'w', 0, 0, 0, 0},
-	[8]byte{'i', 'd', 'i', 'w', 0, 0, 0, 0},
 	[8]byte{'i', 'q', 'A', 'b', 0, 0, 0, 0},
 	[8]byte{'i', 'q', 'A', 'd', 0, 0, 0, 0},
 	[8]byte{'i', 'q', 'A', 'q', 0, 0, 0, 0},
 	[8]byte{'i', 'q', 'A', 'w', 0, 0, 0, 0},
 	[8]byte{'i', 'w', 'i', 'b', 0, 0, 0, 0},
-	[8]byte{'i', 'w', 'i', 'w', 0, 0, 0, 0},
 	[8]byte{'m', '1', 'b', 'o', 0, 0, 0, 0},
 	[8]byte{'m', '1', 'y', 'o', 0, 0, 0, 0},
 	[8]byte{'m', '0', 'i', '0', 0, 0, 0, 0},
@@ -435,7 +420,6 @@ var argpFormats = [...][8]byte{
 	[8]byte{'v', 'q', 'r', 'q', 0, 0, 0, 0},
 	[8]byte{'v', 'q', 'x', 'q', 0, 0, 0, 0},
 	[8]byte{'v', 'q', 'y', 'o', 0, 0, 0, 0},
-	[8]byte{'v', 'w', 'r', 'w', 0, 0, 0, 0},
 	[8]byte{'w', 'h', 'y', 'h', 0, 0, 0, 0},
 	[8]byte{'w', 'o', 'y', 'o', 0, 0, 0, 0},
 	[8]byte{'x', 'q', 'i', 'b', 0, 0, 0, 0},

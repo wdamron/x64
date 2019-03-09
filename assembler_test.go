@@ -14,8 +14,8 @@ import (
 //   * Shell-Storm: http://shell-storm.org/online/Online-Assembler-and-Disassembler/
 
 func TestInstName(t *testing.T) {
-	if AAA.Name() != "AAA" {
-		t.Fatalf("AAA.Name() = %s", AAA.Name())
+	if ADC.Name() != "ADC" {
+		t.Fatalf("ADC.Name() = %s", ADC.Name())
 	}
 	if MOV.Name() != "MOV" {
 		t.Fatalf("MOV.Name() = %s", MOV.Name())
