@@ -1,5 +1,9 @@
 package x64
 
+import "fmt"
+
+var _ = fmt.Sprintf
+
 // Operand type/size patterns
 //
 // i : immediate
@@ -32,7 +36,10 @@ package x64
 // f matches an FWORD (6 bytes)
 // 0/* matches all possible sizes for this operand (w/d for i, w/d/q for r/v, o/h for y/w and everything for m)
 // 1/_ matches a lack of size, only useful in combination with m
-func matchInst(inst Inst, argc int, args *[4]Arg) (enc, bool) {
+func (a *Assembler) matchInst() bool {
+	inst := a.inst.inst
+	args := a.inst.args
+	argc := len(args)
 	o := inst.offset()
 	c := inst.count()
 SEARCH:
@@ -79,10 +86,12 @@ SEARCH:
 					if argv.Family() != REG_LEGACY && argv.Family() != REG_HIGHBYTE {
 						continue SEARCH
 					}
-				case Mem:
-					if t != 'v' || (argv.Index != 0 && (argv.Index.Family() == REG_XMM || argv.Index.Family() == REG_YMM)) {
+				case memArgPlaceholder:
+					mem := a.inst.mem
+					if t != 'v' || (mem.Index != 0 && (mem.Index.Family() == REG_XMM || mem.Index.Family() == REG_YMM)) {
 						continue SEARCH
 					}
+					argsz = mem.width()
 				default:
 					continue SEARCH
 				}
@@ -92,10 +101,12 @@ SEARCH:
 					if argv.Family() != REG_MMX {
 						continue SEARCH
 					}
-				case Mem:
-					if t != 'u' || (argv.Index != 0 && (argv.Index.Family() == REG_XMM || argv.Index.Family() == REG_YMM)) {
+				case memArgPlaceholder:
+					mem := a.inst.mem
+					if t != 'u' || (mem.Index != 0 && (mem.Index.Family() == REG_XMM || mem.Index.Family() == REG_YMM)) {
 						continue SEARCH
 					}
+					argsz = mem.width()
 				default:
 					continue SEARCH
 				}
@@ -105,17 +116,24 @@ SEARCH:
 					if argv.Family() != REG_XMM && argv.Family() != REG_YMM {
 						continue SEARCH
 					}
-				case Mem:
-					if t != 'w' || (argv.Index != 0 && (argv.Index.Family() == REG_XMM || argv.Index.Family() == REG_YMM)) {
+				case memArgPlaceholder:
+					mem := a.inst.mem
+					if t != 'w' || (mem.Index != 0 && (mem.Index.Family() == REG_XMM || mem.Index.Family() == REG_YMM)) {
 						continue SEARCH
 					}
+					argsz = mem.width()
 				default:
 					continue SEARCH
 				}
 			case 'm': // memory
-				if m, ok := arg.(Mem); !ok || (m.Index != 0 && (m.Index.Family() == REG_XMM || m.Index.Family() == REG_YMM)) {
+				if a.inst.memOffset != ai {
 					continue SEARCH
 				}
+				m := a.inst.mem
+				if m.Index != 0 && (m.Index.Family() == REG_XMM || m.Index.Family() == REG_YMM) {
+					continue SEARCH
+				}
+				argsz = m.width()
 			case 'f': // fp reg
 				if r, ok := arg.(Reg); !ok || r.Family() != REG_FP {
 					continue SEARCH
@@ -137,19 +155,11 @@ SEARCH:
 			// k : vsib addressing, 32 bit result, size determines xmm or ymm
 			// l : vsib addressing, 64 bit result, size determines xmm or ymm
 			case 'k', 'l':
-				m, ok := arg.(Mem)
-				if !ok {
+				if a.inst.memOffset != ai {
 					continue SEARCH
 				}
-				// w := uint8(4)
-				// if t == 'l' {
-				// 	w = 8
-				// }
-				// if m.Base != 0 && m.Base.width() != w {
-				// 	continue SEARCH
-				// }
-				if !(m.Index != 0 && (m.Index.Family() == REG_XMM || m.Index.Family() == REG_YMM)) &&
-					!(m.Base != 0 && (m.Base.Family() == REG_XMM || m.Base.Family() == REG_YMM)) {
+				m := a.inst.mem
+				if m.Index.Family() != REG_XMM && m.Index.Family() != REG_YMM {
 					continue SEARCH
 				}
 				argsz = m.Index.width()
@@ -246,8 +256,12 @@ SEARCH:
 		}
 
 		// all arguments match for the current encoding
-		return e, true
+		var matched = e
+		a.inst.enc = matched
+		a.inst.argp = p[:pl]
+		return true
 	}
 
-	return enc{}, false
+	a.inst.enc = enc{}
+	return false
 }

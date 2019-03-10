@@ -1,17 +1,16 @@
 package x64
 
 import (
-	"bytes"
 	"fmt"
 	"math/bits"
 
 	. "github.com/wdamron/x64/flags"
 )
 
-func (a *Assembler) emitInst(inst Inst, argc int, args *[4]Arg) error {
+func (a *Assembler) emitInst() error {
 	buf := &a.b
 	// sanitize memory references, determine address size, and size immediates/displacements if possible
-	addrSize, err := sanitizeMemArgs(argc, args)
+	addrSize, err := a.sanitizeMemArg()
 	if err != nil {
 		return err
 	}
@@ -19,25 +18,24 @@ func (a *Assembler) emitInst(inst Inst, argc int, args *[4]Arg) error {
 		addrSize = 8
 	}
 
+	inst := a.inst.inst
+
 	// find a matching encoding
-	enc, ok := matchInst(inst, argc, args)
-	if !ok {
+	if ok := a.matchInst(); !ok {
 		return fmt.Errorf("No matching encoding is registered for %s", inst.Name())
 	}
 
-	argp := enc.format()
-	plen := bytes.IndexByte(argp[:], 0)
-	if plen < 0 {
-		plen = len(argp)
-	}
+	enc := a.inst.enc
+	args := a.inst.args
+	argc := len(args)
 
-	opSize, err := resizeArgs(plen, argp, argc, args)
+	opSize, err := a.resizeArgs()
 	if err != nil {
 		return err
 	}
 
 	flags := enc.flags
-	ext, err := extractArgs(plen, argp, argc, args, flags)
+	ext, err := a.extractArgs()
 	if err != nil {
 		return err
 	}
@@ -61,7 +59,7 @@ func (a *Assembler) emitInst(inst Inst, argc int, args *[4]Arg) error {
 	// determine if size prefixes are necessary
 	if hasFlag(flags, AUTO_SIZE) || hasFlag(flags, AUTO_NO32) || hasFlag(flags, AUTO_REXW) || hasFlag(flags, AUTO_VEXL) {
 		if opSize < 0 {
-			return fmt.Errorf("Bad formatting data for %s; no wildcard sizes", inst.Name())
+			return fmt.Errorf("Bad formatting data for %s (op size = %v); no wildcard sizes", inst.Name(), opSize)
 		}
 
 		if hasFlag(flags, AUTO_NO32) {
@@ -113,7 +111,7 @@ func (a *Assembler) emitInst(inst Inst, argc int, args *[4]Arg) error {
 		hasPrefMod = true
 	}
 
-	needRex, err := checkRex(plen, argp, argc, args, rexW)
+	needRex, err := a.checkRex(rexW)
 	if err != nil {
 		return err
 	}
@@ -146,7 +144,7 @@ func (a *Assembler) emitInst(inst Inst, argc int, args *[4]Arg) error {
 		// map_sel is stored in the first byte of the opcode
 		mapSel := uint8(op[0])
 		op = op[1:]
-		emitVexXop(buf, enc, ext, mapSel, pref, rexW, vexL)
+		a.emitVexXop(buf, enc, ext, mapSel, pref, rexW, vexL)
 	} else {
 		if hasPrefMod {
 			buf.Byte(prefMod)
@@ -155,7 +153,7 @@ func (a *Assembler) emitInst(inst Inst, argc int, args *[4]Arg) error {
 			buf.Byte(0x66)
 		}
 		if needRex {
-			emitRex(buf, ext.r, ext.m, rexW)
+			a.emitRex(buf, ext.r, ext.m, rexW)
 		}
 	}
 
@@ -188,7 +186,8 @@ func (a *Assembler) emitInst(inst Inst, argc int, args *[4]Arg) error {
 			}
 			emitMSIB(buf, modDirect, r1, r2)
 			// Indirect ModRM (+SIB) addressing
-		} else if m, ok := ext.m.(Mem); ok {
+		} else if a.inst.memOffset >= 0 {
+			m := a.inst.mem
 			r, ok := ext.r.(Reg)
 			if !ok {
 				r = Reg(Reg(addrSize)<<16 | REG_LEGACY<<8 | Reg(enc.reg()))

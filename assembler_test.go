@@ -44,45 +44,105 @@ func TestStaticDataSize(t *testing.T) {
 
 func TestEncode(t *testing.T) {
 	asm := NewAssembler(make([]byte, 256))
-	check := func(expect string, inst Inst, args ...Arg) {
-		asm.Reset()
-		if err := asm.Inst(inst, args...); err != nil {
-			t.Fatal(err)
-		}
+	_expect := func(s string) {
 		decoded, err := x86asm.Decode(asm.Code(), 64)
 		if err != nil {
 			t.Fatal(err)
 		}
 		intel := x86asm.IntelSyntax(decoded, 0, nil)
-		if intel != expect {
+		if intel != s {
 			t.Logf("encoded inst = %#x\n", asm.Code())
-			t.Fatalf("decoded inst = %s != %s", intel, expect)
+			t.Fatalf("decoded inst = %s != %s", intel, s)
 		}
 	}
+	check := func(expect string, inst Inst, args ...Arg) {
+		asm.Reset()
+		if err := asm.Inst(inst, args...); err != nil {
+			t.Fatal(err)
+		}
+		_expect(expect)
+	}
+	checkregreg := func(expect string, inst Inst, dst, src Reg) {
+		asm.Reset()
+		if err := asm.RegReg(inst, dst, src); err != nil {
+			t.Fatal(err)
+		}
+		_expect(expect)
+	}
+	checkregmem := func(expect string, inst Inst, dst Reg, src Mem) {
+		asm.Reset()
+		if err := asm.RegMem(inst, dst, src); err != nil {
+			t.Fatal(err)
+		}
+		_expect(expect)
+	}
+	checkmemreg := func(expect string, inst Inst, dst Mem, src Reg) {
+		asm.Reset()
+		if err := asm.MemReg(inst, dst, src); err != nil {
+			t.Fatal(err)
+		}
+		_expect(expect)
+	}
+	checkregimm := func(expect string, inst Inst, dst Reg, imm ImmArg) {
+		asm.Reset()
+		if err := asm.RegImm(inst, dst, imm); err != nil {
+			t.Fatal(err)
+		}
+		_expect(expect)
+	}
+	checkmemimm := func(expect string, inst Inst, dst Mem, imm ImmArg) {
+		asm.Reset()
+		if err := asm.MemImm(inst, dst, imm); err != nil {
+			t.Fatal(err)
+		}
+		_expect(expect)
+	}
+
 	check("mov al, 0x1", MOV, AL, Imm8(1))
+	checkregimm("mov al, 0x1", MOV, AL, Imm8(1))
 	check("mov ah, 0x1", MOV, AH, Imm8(1))
+	checkregimm("mov ah, 0x1", MOV, AH, Imm8(1))
 	check("mov ax, 0x1", MOV, AX, Imm8(1)) // Imm8 will be auto-expanded to Imm16
+	checkregimm("mov ax, 0x1", MOV, AX, Imm8(1))
 	check("mov ax, 0x1", MOV, AX, Imm16(1))
+	checkregimm("mov ax, 0x1", MOV, AX, Imm16(1))
 	check("mov rax, r13", MOV, RAX, R13)
+	checkregreg("mov rax, r13", MOV, RAX, R13)
 	check("add rax, rbx", ADD, RAX, RBX)
+	checkregreg("add rax, rbx", ADD, RAX, RBX)
 	check("add rax, 0x1", ADD, RAX, Imm8(1))
+	checkregimm("add rax, 0x1", ADD, RAX, Imm8(1))
+	check("add qword ptr [rax], 0x1", ADD, Mem{Base: RAX}, Imm8(1))
+	checkmemimm("add qword ptr [rax], 0x1", ADD, Mem{Base: RAX}, Imm8(1))
 	check("xor rax, rbx", XOR, RAX, RBX)
+	checkregreg("xor rax, rbx", XOR, RAX, RBX)
 	check("pxor xmm1, xmm2", PXOR, X1, X2)
+	checkregreg("pxor xmm1, xmm2", PXOR, X1, X2)
 	check("mov rax, qword ptr [rbx]", MOV, RAX, Mem{Base: RBX})
+	checkregmem("mov rax, qword ptr [rbx]", MOV, RAX, Mem{Base: RBX})
 	check("mov qword ptr [rax], rbx", MOV, Mem{Base: RAX}, RBX)
+	checkmemreg("mov qword ptr [rax], rbx", MOV, Mem{Base: RAX}, RBX)
 	check("mov qword ptr [r13], rbx", MOV, Mem{Base: R13}, RBX)
+	checkmemreg("mov qword ptr [r13], rbx", MOV, Mem{Base: R13}, RBX)
 	check("mov rax, qword ptr [rbx+r15*1]", MOV, RAX, Mem{Base: RBX, Index: R15})
+	checkregmem("mov rax, qword ptr [rbx+r15*1]", MOV, RAX, Mem{Base: RBX, Index: R15})
 	check("mov rax, qword ptr [rbx+r15*2]", MOV, RAX, Mem{Base: RBX, Index: R15, Scale: 2})
+	checkregmem("mov rax, qword ptr [rbx+r15*2]", MOV, RAX, Mem{Base: RBX, Index: R15, Scale: 2})
 	check("mov rax, qword ptr [rbx+r15*2+0x8]", MOV, RAX, Mem{Base: RBX, Index: R15, Scale: 2, Disp: Rel8(8)})
+	checkregmem("mov rax, qword ptr [rbx+r15*2+0x8]", MOV, RAX, Mem{Base: RBX, Index: R15, Scale: 2, Disp: Rel8(8)})
 	check("mov rax, qword ptr [rbx+r15*2+0x8]", MOV, RAX, Mem{Base: RBX, Index: R15, Scale: 2, Disp: Rel32(8)})
+	checkregmem("mov rax, qword ptr [rbx+r15*2+0x8]", MOV, RAX, Mem{Base: RBX, Index: R15, Scale: 2, Disp: Rel32(8)})
 	check("lea rax, ptr [rbx+r15*2+0x8]", LEA, RAX, Mem{Base: RBX, Index: R15, Scale: 2, Disp: Rel8(8)})
+	checkregmem("lea rax, ptr [rbx+r15*2+0x8]", LEA, RAX, Mem{Base: RBX, Index: R15, Scale: 2, Disp: Rel8(8)})
 	check("lea rax, ptr [rbx+r15*2+0x8]", LEA, RAX, Mem{Base: RBX, Index: R15, Scale: 2, Disp: Rel32(8)})
+	checkregmem("lea rax, ptr [rbx+r15*2+0x8]", LEA, RAX, Mem{Base: RBX, Index: R15, Scale: 2, Disp: Rel32(8)})
 	check("jz .+0x4", JZ, Rel8(4))
 	check("jz .-0x4", JZ, Rel8(-4))
 	check("jz .+0x8000", JZ, Rel32(32768))
 	check("jz .-0x8000", JZ, Rel32(-32768))
 	check("jmp qword ptr [rax]", JMP, Mem{Base: RAX})
 	check("lea rax, ptr [rip+0x10]", LEA, RAX, Mem{Base: RIP, Disp: Rel8(16)})
+	checkregmem("lea rax, ptr [rip+0x10]", LEA, RAX, Mem{Base: RIP, Disp: Rel8(16)})
 
 	asm.Reset()
 	if err := asm.Inst(VSHUFPD, X0, X1, Mem{Base: RBX, Width: 16}, Imm8(2)); err != nil {
@@ -159,7 +219,7 @@ func TestRelocs(t *testing.T) {
 	asm.Inst(ADD, RBX, Imm8(1))
 	asm.Inst(JMP, label2.Rel8())
 	asm.Inst(JMP, label3.Rel8())
-	if err := asm.ProcessRelocs(); err != nil {
+	if err := asm.Finalize(); err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("%#x", asm.Code())
@@ -174,7 +234,7 @@ func TestRelocs(t *testing.T) {
 	_ = asm.NewLabel()
 	asm.Inst(ADD, RBX, Imm8(1))
 	asm.Inst(JMP, label.Rel32())
-	if err := asm.ProcessRelocs(); err != nil {
+	if err := asm.Finalize(); err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("%#x", asm.Code())
@@ -189,7 +249,7 @@ func TestRelocs(t *testing.T) {
 	_ = asm.NewLabel()
 	asm.Inst(ADD, RBX, Imm8(1))
 	asm.Inst(JMP, label)
-	if err := asm.ProcessRelocs(); err != nil {
+	if err := asm.Finalize(); err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("%#x", asm.Code())
@@ -205,7 +265,7 @@ func TestRelocs(t *testing.T) {
 	delta := asm.PC()
 	asm.Inst(ADD, RBX, Imm8(1))
 	asm.Inst(JMP, label.Disp8(int8(delta))) // jump to middle of block
-	if err := asm.ProcessRelocs(); err != nil {
+	if err := asm.Finalize(); err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("%#x", asm.Code())
@@ -220,7 +280,7 @@ func TestRelocs(t *testing.T) {
 	delta = asm.PC()
 	asm.Inst(ADD, RBX, Imm8(1))
 	asm.Inst(JMP, label.Disp32(int32(delta))) // jump to middle of block
-	if err := asm.ProcessRelocs(); err != nil {
+	if err := asm.Finalize(); err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("%#x", asm.Code())
@@ -236,7 +296,7 @@ func TestRelocs(t *testing.T) {
 	if err := asm.Inst(LEA, RAX, Mem{Base: RIP, Disp: label.Disp32(int32(delta))}); err != nil { // jump to middle of block
 		t.Fatal(err)
 	}
-	if err := asm.ProcessRelocs(); err != nil {
+	if err := asm.Finalize(); err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("%#x", asm.Code())

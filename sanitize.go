@@ -4,45 +4,35 @@ import "fmt"
 
 // Go through the arguments, check for impossible to encode memory arguments, fill in immediate/displacement
 // size information and return the effective address size
-func sanitizeMemArgs(argc int, args *[4]Arg) (addrSize int8, err error) {
-	addrSize = int8(-1)
-	hasMem := false
-	argSlice := args[:argc]
-	for i, arg := range argSlice {
-		mem, ok := arg.(Mem)
-		if !ok {
-			continue
-		}
-		if hasMem {
-			return -1, fmt.Errorf("Only 1 memory argument is supported per instruction")
-		}
-		hasMem = true
-		if addrSize, err = sanitizeMem(&mem); err != nil {
-			return
-		}
-		if (mem.Base != 0 && mem.Base.Family() == REG_RIP) || (mem.Index != 0 && mem.Index.Family() == REG_RIP) {
-			if mem.Disp == nil {
-				mem.Disp = Rel32(0)
-			} else if mem.Disp.width() != 4 {
-				if ld, ok := mem.Disp.(LabelDisp); ok {
-					mem.Disp = LabelDisp{l: ld.l, d: Rel32(ld.Int32())}
-				} else if label, ok := mem.Disp.(LabelArg); ok {
-					mem.Disp = Label32(uint16(label.label()))
-				} else {
-					mem.Disp = Rel32(mem.Disp.Int32())
-				}
-			}
-		} else if mem.Disp != nil {
-			dispsz := mem.Disp.width()
-			if addrSize == 2 {
-				if dispsz != 1 && dispsz != 2 {
-					return addrSize, fmt.Errorf("Only 8/16-bit displacements are allowed with 16-bit addressing")
-				}
-			} else if dispsz != 0 && dispsz != 1 && dispsz != 4 {
-				return addrSize, fmt.Errorf("Only 8/32-bit displacements are allowed without 64-bit addressing")
+func (a *Assembler) sanitizeMemArg() (addrSize int8, err error) {
+	if a.inst.memOffset < 0 {
+		return -1, nil
+	}
+	mem := a.inst.mem
+	if addrSize, err = sanitizeMem(&a.inst.mem); err != nil {
+		return
+	}
+	if (mem.Base != 0 && mem.Base.Family() == REG_RIP) || (mem.Index != 0 && mem.Index.Family() == REG_RIP) {
+		if mem.Disp == nil {
+			a.inst.mem.Disp = Rel32(0)
+		} else if mem.Disp.width() != 4 {
+			if ld, ok := mem.Disp.(LabelDisp); ok {
+				a.inst.mem.Disp = LabelDisp{labelid: ld.labelid, disp: ld.Int32(), dispsz: 4}
+			} else if label, ok := mem.Disp.(LabelArg); ok {
+				a.inst.mem.Disp = Label32(uint16(label.label()))
+			} else {
+				a.inst.mem.Disp = Rel32(mem.Disp.Int32())
 			}
 		}
-		argSlice[i] = mem
+	} else if mem.Disp != nil {
+		dispsz := mem.Disp.width()
+		if addrSize == 2 {
+			if dispsz != 1 && dispsz != 2 {
+				return addrSize, fmt.Errorf("Only 8/16-bit displacements are allowed with 16-bit addressing")
+			}
+		} else if dispsz != 0 && dispsz != 1 && dispsz != 4 {
+			return addrSize, fmt.Errorf("Only 8/32-bit displacements are allowed without 64-bit addressing")
+		}
 	}
 	return
 }

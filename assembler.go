@@ -6,19 +6,39 @@ import (
 	"math"
 )
 
-// An assembler encodes instructions into a byte slice. Label references are supported, though ProcessRelocs
+// An assembler encodes instructions into a byte slice. Label references are supported, though Finalize
 // must be called to finalize all existing (unprocessed) relative displacements.
 //
 // When re-using an assembler after encoding a set of instructions, the Reset method must be called beforehand.
 type Assembler struct {
-	_labels [32]Label
-	_relocs [32]reloc
-
 	b           buffer
 	labels      []Label
 	relocs      []reloc
 	nextLabelId uint16
+
+	inst instArgsEnc // current instruction (value is non-zero only while encoding)
+
+	_labels [32]Label
+	_relocs [32]reloc
 }
+
+type instArgsEnc struct {
+	args      []Arg // sized reference to _args
+	inst      Inst
+	memOffset int // -1 if no memory argument is present
+	mem       Mem // memory argument if memOffset >= 0
+
+	enc  enc    // matched encoding
+	argp []byte // arg-pattern for the matched encoding
+
+	_args [4]Arg
+}
+
+// Placeholder for memory arguments, to avoid allocations when converting Mem to an interface
+type memArgPlaceholder struct{}
+
+func (m memArgPlaceholder) isArg()       {}
+func (m memArgPlaceholder) width() uint8 { return 0 }
 
 type reloc struct {
 	loc   uint32 // displacement offset (pc)
@@ -56,19 +76,139 @@ func (a *Assembler) Code() []byte { return a.b.Get() }
 func (a *Assembler) PC() uint32 { return uint32(a.b.i) }
 
 // Set the current program counter (i.e. number of bytes written to the encoding buffer).
-func (a *Assembler) SetPC(pc uint32) { a.b.i = int(pc) }
+func (a *Assembler) SetPC(pc uint32) {
+	if int(pc) >= a.b.Cap() {
+		a.b.extend(int(pc) + 1 - a.b.Cap())
+	}
+	a.b.i = int(pc)
+}
 
 // Align the program counter to a power-of-2 offset. Intermediate space will be filled with NOPs.
 func (a *Assembler) AlignPC(pow2 uint8) { a.b.Nop(pow2 - (uint8(a.PC()) & (pow2 - 1))) }
 
 // Encode inst with args to the encoding buffer.
 func (a *Assembler) Inst(inst Inst, args ...Arg) error {
-	var argv [4]Arg
+	a.inst = instArgsEnc{inst: inst, memOffset: -1}
 	for i, arg := range args {
-		argv[i] = arg
+		if mem, ok := arg.(Mem); ok {
+			if a.inst.memOffset >= 0 {
+				return fmt.Errorf("Multiple memory arguments are not supported")
+			}
+			a.inst._args[i] = memArgPlaceholder{}
+			a.inst.memOffset = i
+			a.inst.mem = mem
+			continue
+		}
+		a.inst._args[i] = arg
 	}
-	argc := len(args)
-	return a.emitInst(inst, argc, &argv)
+	a.inst.args = a.inst._args[:len(args)]
+	if err := a.emitInst(); err != nil {
+		a.inst = instArgsEnc{}
+		return err
+	}
+	a.inst = instArgsEnc{}
+	return nil
+}
+
+// Encode inst with a register destination and register source to the encoding buffer.
+func (a *Assembler) RegReg(inst Inst, dst, src Reg) error {
+	return a.regRegImm(inst, dst, src, nil)
+}
+
+// Encode inst with a register destination, register source, and immediate argument to the encoding buffer.
+func (a *Assembler) RegRegImm(inst Inst, dst, src Reg, imm ImmArg) error {
+	return a.regRegImm(inst, dst, src, imm)
+}
+
+// Encode inst with a register destination and memory source to the encoding buffer.
+func (a *Assembler) RegMem(inst Inst, dst Reg, src Mem) error {
+	return a.regMemImm(inst, dst, src, nil, false)
+}
+
+// Encode inst with a memory destination and register source to the encoding buffer.
+func (a *Assembler) MemReg(inst Inst, dst Mem, src Reg) error {
+	return a.regMemImm(inst, src, dst, nil, true)
+}
+
+// Encode inst with a register destination, memory source, and immediate argument to the encoding buffer.
+func (a *Assembler) RegMemImm(inst Inst, dst Reg, src Mem, imm ImmArg) error {
+	return a.regMemImm(inst, dst, src, imm, false)
+}
+
+// Encode inst with a memory destination, register source, and immediate argument to the encoding buffer.
+func (a *Assembler) MemRegImm(inst Inst, dst Mem, src Reg, imm ImmArg) error {
+	return a.regMemImm(inst, src, dst, imm, true)
+}
+
+func (a *Assembler) RegImm(inst Inst, dst Reg, imm ImmArg) error {
+	a.inst = instArgsEnc{inst: inst, memOffset: -1}
+	a.inst._args[0], a.inst._args[1] = dst, imm
+	if imm != nil {
+		a.inst.args = a.inst._args[:2]
+	} else {
+		a.inst.args = a.inst._args[:1]
+	}
+	if err := a.emitInst(); err != nil {
+		a.inst = instArgsEnc{}
+		return err
+	}
+	a.inst = instArgsEnc{}
+	return nil
+}
+
+func (a *Assembler) MemImm(inst Inst, dst Mem, imm ImmArg) error {
+	a.inst = instArgsEnc{inst: inst, memOffset: 0, mem: dst}
+	a.inst._args[0], a.inst._args[1] = memArgPlaceholder{}, imm
+	if imm != nil {
+		a.inst.args = a.inst._args[:2]
+	} else {
+		a.inst.args = a.inst._args[:1]
+	}
+	if err := a.emitInst(); err != nil {
+		a.inst = instArgsEnc{}
+		return err
+	}
+	a.inst = instArgsEnc{}
+	return nil
+}
+
+func (a *Assembler) regRegImm(inst Inst, dst, src Reg, imm ImmArg) error {
+	a.inst = instArgsEnc{inst: inst, memOffset: -1}
+	a.inst._args[0], a.inst._args[1], a.inst._args[2] = dst, src, imm
+	if imm != nil {
+		a.inst.args = a.inst._args[:3]
+	} else {
+		a.inst.args = a.inst._args[:2]
+	}
+	if err := a.emitInst(); err != nil {
+		a.inst = instArgsEnc{}
+		return err
+	}
+	a.inst = instArgsEnc{}
+	return nil
+}
+
+func (a *Assembler) regMemImm(inst Inst, r Reg, m Mem, imm ImmArg, swap bool) error {
+	a.inst = instArgsEnc{inst: inst, mem: m}
+	if swap {
+		a.inst.memOffset = 0
+		a.inst._args[0], a.inst._args[1] = memArgPlaceholder{}, r
+	} else {
+		a.inst.memOffset = 1
+		a.inst._args[0], a.inst._args[1] = r, memArgPlaceholder{}
+	}
+	if imm != nil {
+		a.inst._args[2] = imm
+		a.inst.args = a.inst._args[:3]
+	} else {
+		a.inst.args = a.inst._args[:2]
+	}
+	if err := a.emitInst(); err != nil {
+		a.inst = instArgsEnc{}
+		return err
+	}
+	a.inst = instArgsEnc{}
+	return nil
 }
 
 // Write raw data to the encoding buffer.
@@ -88,7 +228,7 @@ func (a *Assembler) Raw64(i int64) { a.b.Int64(i) }
 
 // Create a new label at the current PC. To update the PC assigned to the label, call the SetLabel
 // method with the label when the PC reaches the desired offset -- this must be done before calling
-// the ProcessRelocs method.
+// the Finalize method.
 func (a *Assembler) NewLabel() Label {
 	l := Label{pc: a.PC(), id: a.nextLabelId}
 	a.labels = append(a.labels, l)
@@ -114,15 +254,15 @@ func (a *Assembler) relocDisp(ld LabelDisp) {
 	width := ld.width()
 	a.relocs = append(a.relocs, reloc{
 		loc:   a.PC() - uint32(width),
-		disp:  ld.d.Int32(),
-		label: ld.l.label(),
+		disp:  ld.disp,
+		label: ld.labelid,
 		width: width,
 	})
 }
 
 // Process all label references. Each label reference will have its displacement patched with the relative
 // offset to the label (optionally with additional displacement for LabelDisp arguments).
-func (a *Assembler) ProcessRelocs() error {
+func (a *Assembler) Finalize() error {
 	ls := a.labels
 	rs := a.relocs
 	for _, r := range rs {

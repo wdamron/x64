@@ -207,8 +207,10 @@ type Label struct {
 //
 // LabelDisp implements LabelArg and DispArg.
 type LabelDisp struct {
-	l LabelArg
-	d DispArg
+	disp    int32
+	labelid uint16
+	dispsz  uint8
+	_       uint8
 }
 
 // Get the unique identifier for the label.
@@ -223,14 +225,23 @@ func (l Label) Rel16() Label16 { return Label16(l.id) }
 // Reference the label as a 32-bit relative displacement from the current instruction pointer.
 func (l Label) Rel32() Label32 { return Label32(l.id) }
 
-// Reference the label as an 8-bit relative displacement from the current instruction pointer.
-func (l Label) Disp8(d int8) LabelDisp { return LabelDisp{l: l, d: Rel8(d)} }
+// Reference the label as an 8-bit relative displacement from the current instruction pointer,
+// with additional displacement provided by d.
+func (l Label) Disp8(d int8) LabelDisp {
+	return LabelDisp{labelid: l.label(), disp: int32(d), dispsz: 1}
+}
 
-// Reference the label as a 16-bit relative displacement from the current instruction pointer.
-func (l Label) Disp16(d int16) LabelDisp { return LabelDisp{l: l, d: Rel16(d)} }
+// Reference the label as a 16-bit relative displacement from the current instruction pointer,
+// with additional displacement provided by d.
+func (l Label) Disp16(d int16) LabelDisp {
+	return LabelDisp{labelid: l.label(), disp: int32(d), dispsz: 2}
+}
 
-// Reference the label as a 32-bit relative displacement from the current instruction pointer.
-func (l Label) Disp32(d int32) LabelDisp { return LabelDisp{l: l, d: Rel32(d)} }
+// Reference the label as a 32-bit relative displacement from the current instruction pointer,
+// with additional displacement provided by d.
+func (l Label) Disp32(d int32) LabelDisp {
+	return LabelDisp{labelid: l.label(), disp: d, dispsz: 4}
+}
 
 // Label8 is an 8-bit displacement to a label.
 //
@@ -269,13 +280,13 @@ func (l Label8) width() uint8    { return 1 }
 func (l Label16) width() uint8   { return 2 }
 func (l Label32) width() uint8   { return 4 }
 func (l Label) width() uint8     { return 4 }
-func (l LabelDisp) width() uint8 { return l.d.width() }
+func (l LabelDisp) width() uint8 { return l.dispsz }
 
 func (l Label8) label() uint16    { return uint16(l) }
 func (l Label16) label() uint16   { return uint16(l) }
 func (l Label32) label() uint16   { return uint16(l) }
 func (l Label) label() uint16     { return uint16(l.id) }
-func (l LabelDisp) label() uint16 { return l.l.label() }
+func (l LabelDisp) label() uint16 { return l.labelid }
 
 // Get the additional displacement for the label reference, which is always 0. Use LabelDisp for additional displacement.
 func (l Label8) Int32() int32 { return 0 }
@@ -290,4 +301,4 @@ func (l Label32) Int32() int32 { return 0 }
 func (l Label) Int32() int32 { return 0 }
 
 // Get the additional displacement for the label reference.
-func (l LabelDisp) Int32() int32 { return l.d.Int32() }
+func (l LabelDisp) Int32() int32 { return l.disp }

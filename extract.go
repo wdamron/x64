@@ -22,7 +22,12 @@ type extractedArgs struct {
 // ENC_MR:              mr, rmv, rvmi
 // ENC_VM:              vm, mvr
 // these can also be chosen based on the location of a memory argument (except for vm)
-func extractArgs(plen int, argp [8]byte, argc int, args *[4]Arg, flags uint32) (extractedArgs, error) {
+func (a *Assembler) extractArgs() (extractedArgs, error) {
+	argp := a.inst.argp
+	plen := len(argp)
+	args := a.inst.args
+	argc := len(args)
+	flags := a.inst.enc.flags
 	var ext extractedArgs
 	memArg := -1
 	regArg := -1
