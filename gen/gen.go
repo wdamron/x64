@@ -312,13 +312,12 @@ var argpFormats = [...][8]byte{
 }
 {{ end }}
 {{ if (eq .Cli "mnemonics") }}
-// Instruction-mnemonic constants:
+// Instruction-mnemonic constants
 //
-// [0..12] bits are uint16 offset into encodings array
-//
-// [16..20] bits specify the number of available encodings for the mnemonic
-//
-// [21..31] bits identify the unique mnemonic
+// 	[0..12] bits are a uint16 offset into an internal array of instruction-encodings
+// 	[16..20] bits specify the number of supported encodings for the instruction
+// 	[21..31] bits identify the unique mnemonic
+
 const (
 	{{ range $m := .Mnemonics }}{{ $m.Name }} Inst = {{ $m.Value }}
 	{{ end }}

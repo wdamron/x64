@@ -56,43 +56,43 @@ func TestEncode(t *testing.T) {
 		}
 	}
 	check := func(expect string, inst Inst, args ...Arg) {
-		asm.Reset()
+		asm.Reset(nil)
 		if err := asm.Inst(inst, args...); err != nil {
 			t.Fatal(err)
 		}
 		_expect(expect)
 	}
 	checkregreg := func(expect string, inst Inst, dst, src Reg) {
-		asm.Reset()
-		if err := asm.RegReg(inst, dst, src); err != nil {
+		asm.Reset(nil)
+		if err := asm.RR(inst, dst, src); err != nil {
 			t.Fatal(err)
 		}
 		_expect(expect)
 	}
 	checkregmem := func(expect string, inst Inst, dst Reg, src Mem) {
-		asm.Reset()
-		if err := asm.RegMem(inst, dst, src); err != nil {
+		asm.Reset(nil)
+		if err := asm.RM(inst, dst, src); err != nil {
 			t.Fatal(err)
 		}
 		_expect(expect)
 	}
 	checkmemreg := func(expect string, inst Inst, dst Mem, src Reg) {
-		asm.Reset()
-		if err := asm.MemReg(inst, dst, src); err != nil {
+		asm.Reset(nil)
+		if err := asm.MR(inst, dst, src); err != nil {
 			t.Fatal(err)
 		}
 		_expect(expect)
 	}
 	checkregimm := func(expect string, inst Inst, dst Reg, imm ImmArg) {
-		asm.Reset()
-		if err := asm.RegImm(inst, dst, imm); err != nil {
+		asm.Reset(nil)
+		if err := asm.RI(inst, dst, imm); err != nil {
 			t.Fatal(err)
 		}
 		_expect(expect)
 	}
 	checkmemimm := func(expect string, inst Inst, dst Mem, imm ImmArg) {
-		asm.Reset()
-		if err := asm.MemImm(inst, dst, imm); err != nil {
+		asm.Reset(nil)
+		if err := asm.MI(inst, dst, imm); err != nil {
 			t.Fatal(err)
 		}
 		_expect(expect)
@@ -144,7 +144,7 @@ func TestEncode(t *testing.T) {
 	check("lea rax, ptr [rip+0x10]", LEA, RAX, Mem{Base: RIP, Disp: Rel8(16)})
 	checkregmem("lea rax, ptr [rip+0x10]", LEA, RAX, Mem{Base: RIP, Disp: Rel8(16)})
 
-	asm.Reset()
+	asm.Reset(nil)
 	if err := asm.Inst(VSHUFPD, X0, X1, Mem{Base: RBX, Width: 16}, Imm8(2)); err != nil {
 		t.Logf("vshufpd xmm0, xmm1, xmmword ptr [rbx], 0x2 = %#x", asm.Code())
 		t.Fatal(err)
@@ -155,7 +155,7 @@ func TestEncode(t *testing.T) {
 
 	// VSIB addressing:
 
-	asm.Reset()
+	asm.Reset(nil)
 	if err := asm.Inst(VGATHERDPS, X0, Mem{Base: RDX, Index: X1}, X2); err != nil {
 		t.Logf("vgatherdps xmm0, [rdx+xmm1], xmm2 = %#x", asm.Code())
 		t.Fatal(err)
@@ -164,7 +164,7 @@ func TestEncode(t *testing.T) {
 		t.Fatalf("vgatherdps xmm0, [rdx+xmm1], xmm2 = %#x != 0xc4e26992440a00", asm.Code())
 	}
 
-	asm.Reset()
+	asm.Reset(nil)
 	if err := asm.Inst(VGATHERQPS, X0, Mem{Base: RDX, Index: X1, Disp: Rel8(64), Scale: 4}, X2); err != nil {
 		t.Logf("vgatherqps xmm0, [rdx+xmm1*4+0x40], xmm2 = %#x", asm.Code())
 		t.Fatal(err)
@@ -227,7 +227,7 @@ func TestRelocs(t *testing.T) {
 		t.Fatalf("encoded = %#x != %s", asm.Code(), "0x4889d84883c0054883c301ebf34883c301ebf4ebf8")
 	}
 	// 32-bit displacement
-	asm.Reset()
+	asm.Reset(nil)
 	label = asm.NewLabel()
 	asm.Inst(MOV, RAX, RBX)
 	asm.Inst(ADD, RAX, Imm8(5))
@@ -242,7 +242,7 @@ func TestRelocs(t *testing.T) {
 		t.Fatalf("encoded = %#x != %s", asm.Code(), "0x4889d84883c0054883c301e9f0ffffff")
 	}
 	// auto 32-bit displacement
-	asm.Reset()
+	asm.Reset(nil)
 	label = asm.NewLabel()
 	asm.Inst(MOV, RAX, RBX)
 	asm.Inst(ADD, RAX, Imm8(5))
@@ -258,7 +258,7 @@ func TestRelocs(t *testing.T) {
 	}
 
 	// label reference with additional 8-bit displacement
-	asm.Reset()
+	asm.Reset(nil)
 	label = asm.NewLabel()
 	asm.Inst(MOV, RAX, RBX)
 	asm.Inst(ADD, RAX, Imm8(5))
@@ -273,7 +273,7 @@ func TestRelocs(t *testing.T) {
 		t.Fatalf("encoded = %#x != %s", asm.Code(), "0x4889d84883c0054883c301ebfa")
 	}
 	// label reference with additional 32-bit displacement
-	asm.Reset()
+	asm.Reset(nil)
 	label = asm.NewLabel()
 	asm.Inst(MOV, RAX, RBX)
 	asm.Inst(ADD, RAX, Imm8(5))
@@ -288,7 +288,7 @@ func TestRelocs(t *testing.T) {
 		t.Fatalf("encoded = %#x != %s", asm.Code(), "0x4889d84883c0054883c301e9f7ffffff")
 	}
 	// label reference with RIP-relative addressing
-	asm.Reset()
+	asm.Reset(nil)
 	label = asm.NewLabel()
 	asm.Inst(MOV, RAX, RBX)
 	delta = asm.PC()

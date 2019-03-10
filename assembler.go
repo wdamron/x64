@@ -15,11 +15,21 @@ type Assembler struct {
 	labels      []Label
 	relocs      []reloc
 	nextLabelId uint16
+	err         error
 
 	inst instArgsEnc // current instruction (value is non-zero only while encoding)
 
 	_labels [32]Label
 	_relocs [32]reloc
+}
+
+// Create a new Assembler for instruction encoding. Output will be encoded to buf. If the encoded output
+// exceeds the length of buf, a new slice will be allocated.
+func NewAssembler(buf []byte) *Assembler {
+	a := Assembler{b: buffer{b: buf, i: 0, sz: len(buf)}}
+	a.labels = a._labels[:0]
+	a.relocs = a._relocs[:0]
+	return &a
 }
 
 type instArgsEnc struct {
@@ -50,23 +60,27 @@ type reloc struct {
 	width uint8 // displacement width
 }
 
-// Create a new Assembler for instruction encoding. Output will be encoded to buf. If the encoded output
-// exceeds the length of buf, a new slice will be allocated.
-func NewAssembler(buf []byte) *Assembler {
-	a := Assembler{b: buffer{b: buf, i: 0, sz: len(buf)}}
+// Reset an assembler before encoding a new set of instructions. All existing labels will be cleared,
+// the error will be cleared if one exists, and the PC will be reset to 0.
+//
+// If buf is not nil, the assembler's buffer will be replaced with buf; otherwise, the assembler's
+// buffer will be reset and possibly resized.
+func (a *Assembler) Reset(buf []byte) {
+	if buf != nil {
+		a.b = buffer{b: buf, i: 0, sz: len(buf)}
+	} else {
+		a.b.Reset()
+	}
+	a.nextLabelId = 0
+	a.err = nil
+	a.inst = instArgsEnc{}
 	a.labels = a._labels[:0]
 	a.relocs = a._relocs[:0]
-	return &a
 }
 
-// Reset the assembler before encoding a new set of instructions. All existing labels will be cleared,
-// the buffer will be cleared, and the PC will be reset to 0.
-func (a *Assembler) Reset() {
-	a.b.Reset()
-	a.nextLabelId = 0
-	a.labels = a._labels[:0]
-	a.relocs = a._relocs[:0]
-}
+// Get the first error which occured while encoding or finalizing instructions, since the assembler
+// was last reset (or initialized, if the assembler has not been reset).
+func (a *Assembler) Err() error { return a.err }
 
 // Get the current encoded instructions. This method may be called multiple times and does not affect the
 // underlying code buffer.
@@ -88,6 +102,9 @@ func (a *Assembler) AlignPC(pow2 uint8) { a.b.Nop(pow2 - (uint8(a.PC()) & (pow2 
 
 // Encode inst with args to the encoding buffer.
 func (a *Assembler) Inst(inst Inst, args ...Arg) error {
+	if a.err != nil {
+		return a.err
+	}
 	a.inst = instArgsEnc{inst: inst, memOffset: -1}
 	for i, arg := range args {
 		if mem, ok := arg.(Mem); ok {
@@ -111,36 +128,40 @@ func (a *Assembler) Inst(inst Inst, args ...Arg) error {
 }
 
 // Encode inst with a register destination and register source to the encoding buffer.
-func (a *Assembler) RegReg(inst Inst, dst, src Reg) error {
+func (a *Assembler) RR(inst Inst, dst, src Reg) error {
 	return a.regRegImm(inst, dst, src, nil)
 }
 
-// Encode inst with a register destination, register source, and immediate argument to the encoding buffer.
-func (a *Assembler) RegRegImm(inst Inst, dst, src Reg, imm ImmArg) error {
+// Encode inst with a register destination, register source, and immediate to the encoding buffer.
+func (a *Assembler) RRI(inst Inst, dst, src Reg, imm ImmArg) error {
 	return a.regRegImm(inst, dst, src, imm)
 }
 
 // Encode inst with a register destination and memory source to the encoding buffer.
-func (a *Assembler) RegMem(inst Inst, dst Reg, src Mem) error {
+func (a *Assembler) RM(inst Inst, dst Reg, src Mem) error {
 	return a.regMemImm(inst, dst, src, nil, false)
 }
 
 // Encode inst with a memory destination and register source to the encoding buffer.
-func (a *Assembler) MemReg(inst Inst, dst Mem, src Reg) error {
+func (a *Assembler) MR(inst Inst, dst Mem, src Reg) error {
 	return a.regMemImm(inst, src, dst, nil, true)
 }
 
-// Encode inst with a register destination, memory source, and immediate argument to the encoding buffer.
-func (a *Assembler) RegMemImm(inst Inst, dst Reg, src Mem, imm ImmArg) error {
+// Encode inst with a register destination, memory source, and immediate to the encoding buffer.
+func (a *Assembler) RMI(inst Inst, dst Reg, src Mem, imm ImmArg) error {
 	return a.regMemImm(inst, dst, src, imm, false)
 }
 
-// Encode inst with a memory destination, register source, and immediate argument to the encoding buffer.
-func (a *Assembler) MemRegImm(inst Inst, dst Mem, src Reg, imm ImmArg) error {
+// Encode inst with a memory destination, register source, and immediate to the encoding buffer.
+func (a *Assembler) MRI(inst Inst, dst Mem, src Reg, imm ImmArg) error {
 	return a.regMemImm(inst, src, dst, imm, true)
 }
 
-func (a *Assembler) RegImm(inst Inst, dst Reg, imm ImmArg) error {
+// Encode inst with a register destination and immediate to the encoding buffer.
+func (a *Assembler) RI(inst Inst, dst Reg, imm ImmArg) error {
+	if a.err != nil {
+		return a.err
+	}
 	a.inst = instArgsEnc{inst: inst, memOffset: -1}
 	a.inst._args[0], a.inst._args[1] = dst, imm
 	if imm != nil {
@@ -156,7 +177,11 @@ func (a *Assembler) RegImm(inst Inst, dst Reg, imm ImmArg) error {
 	return nil
 }
 
-func (a *Assembler) MemImm(inst Inst, dst Mem, imm ImmArg) error {
+// Encode inst with a memory destination and immediate to the encoding buffer.
+func (a *Assembler) MI(inst Inst, dst Mem, imm ImmArg) error {
+	if a.err != nil {
+		return a.err
+	}
 	a.inst = instArgsEnc{inst: inst, memOffset: 0, mem: dst}
 	a.inst._args[0], a.inst._args[1] = memArgPlaceholder{}, imm
 	if imm != nil {
@@ -173,6 +198,9 @@ func (a *Assembler) MemImm(inst Inst, dst Mem, imm ImmArg) error {
 }
 
 func (a *Assembler) regRegImm(inst Inst, dst, src Reg, imm ImmArg) error {
+	if a.err != nil {
+		return a.err
+	}
 	a.inst = instArgsEnc{inst: inst, memOffset: -1}
 	a.inst._args[0], a.inst._args[1], a.inst._args[2] = dst, src, imm
 	if imm != nil {
@@ -189,6 +217,9 @@ func (a *Assembler) regRegImm(inst Inst, dst, src Reg, imm ImmArg) error {
 }
 
 func (a *Assembler) regMemImm(inst Inst, r Reg, m Mem, imm ImmArg, swap bool) error {
+	if a.err != nil {
+		return a.err
+	}
 	a.inst = instArgsEnc{inst: inst, mem: m}
 	if swap {
 		a.inst.memOffset = 0
@@ -263,6 +294,9 @@ func (a *Assembler) relocDisp(ld LabelDisp) {
 // Process all label references. Each label reference will have its displacement patched with the relative
 // offset to the label (optionally with additional displacement for LabelDisp arguments).
 func (a *Assembler) Finalize() error {
+	if a.err != nil {
+		return a.err
+	}
 	ls := a.labels
 	rs := a.relocs
 	for _, r := range rs {

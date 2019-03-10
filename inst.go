@@ -7,11 +7,9 @@ func hasFlag(flags, flag uint32) bool { return flags&flag != 0 }
 
 // Inst represents an instruction-mnemonic.
 //
-// [0..12] bits are uint16 offset into encodings array.
-//
-// [16..20] bits specify the number of available encodings for the mnemonic.
-//
-// [21..31] bits identify the unique mnemonic.
+// 	[0..12] bits are a uint16 offset into an internal array of instruction-encodings
+// 	[16..20] bits specify the number of supported encodings for the instruction
+// 	[21..31] bits identify the unique mnemonic
 type Inst uint32
 
 // Get the unique numeric identifier for the instruction mnemonic. This is an arbitrary value.

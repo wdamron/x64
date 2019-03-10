@@ -197,6 +197,8 @@ func isLabel(arg Arg) bool {
 }
 
 // Label is a reference to a label.
+//
+// Label implements LabelArg and DispArg.
 type Label struct {
 	pc uint32 // offset/PC
 	id uint16 // auto-incrementing identifier
