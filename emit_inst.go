@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math/bits"
 
-	. "github.com/wdamron/x64/flags"
+	. "github.com/wdamron/x64/internal/flags"
 )
 
 func (a *Assembler) emitInst() error {
@@ -22,7 +22,7 @@ func (a *Assembler) emitInst() error {
 
 	// find a matching encoding
 	if ok := a.matchInst(); !ok {
-		return fmt.Errorf("No matching encoding is registered for %s", inst.Name())
+		return ErrNoMatch
 	}
 
 	enc := a.inst.enc
@@ -34,12 +34,12 @@ func (a *Assembler) emitInst() error {
 		return err
 	}
 
-	flags := enc.flags
-	ext, err := a.extractArgs()
-	if err != nil {
+	if err := a.extractArgs(); err != nil {
 		return err
 	}
 
+	ext := a.inst.ext // extracted args
+	flags := enc.flags
 	op := enc.op[:enc.oplen()]
 
 	// determine if we need an address size override prefix

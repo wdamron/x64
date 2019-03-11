@@ -4,7 +4,8 @@ package main
 
 import (
 	"fmt"
-	. "github.com/wdamron/x64/flags"
+	. "github.com/wdamron/x64/feats"
+	. "github.com/wdamron/x64/internal/flags"
 	"os"
 	"sort"
 	"strings"
@@ -331,7 +332,10 @@ var instNameOffsets = [...]uint16{ {{ .NameOffsets }} }
 
 {{ end }}{{ if (eq .Cli "encodings") }}
 
-import . "github.com/wdamron/x64/flags"
+import (
+	. "github.com/wdamron/x64/feats"
+	. "github.com/wdamron/x64/internal/flags"
+)
 
 // Instruction-encoding table:
 //

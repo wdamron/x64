@@ -1,16 +1,8 @@
 package x64
 
 import (
-	. "github.com/wdamron/x64/flags"
+	. "github.com/wdamron/x64/internal/flags"
 )
-
-type extractedArgs struct {
-	r   Arg
-	m   Arg
-	v   Arg
-	i   Arg
-	imm []Arg
-}
 
 // Operand order:
 //
@@ -22,17 +14,16 @@ type extractedArgs struct {
 // ENC_MR:              mr, rmv, rvmi
 // ENC_VM:              vm, mvr
 // these can also be chosen based on the location of a memory argument (except for vm)
-func (a *Assembler) extractArgs() (extractedArgs, error) {
+func (a *Assembler) extractArgs() error {
 	argp := a.inst.argp
 	plen := len(argp)
 	args := a.inst.args
 	argc := len(args)
 	flags := a.inst.enc.flags
-	var ext extractedArgs
+	ext := &a.inst.ext
 	memArg := -1
 	regArg := -1
 	var regs [4]Arg
-	var imms [4]Arg
 	regc := 0
 	immc := 0
 
@@ -71,12 +62,9 @@ func (a *Assembler) extractArgs() (extractedArgs, error) {
 			if immc == 4 {
 				panic("too many immediates")
 			}
-			imms[immc] = arg
 			immc++
 		}
 	}
-
-	ext.imm = imms[:immc]
 
 	if regArg >= 0 {
 		if regArg == 0 {
@@ -84,7 +72,7 @@ func (a *Assembler) extractArgs() (extractedArgs, error) {
 		} else {
 			ext.m, ext.r = regs[0], regs[1]
 		}
-		return ext, nil
+		return nil
 	}
 
 	switch regc {
@@ -114,5 +102,5 @@ func (a *Assembler) extractArgs() (extractedArgs, error) {
 		}
 	}
 
-	return ext, nil
+	return nil
 }

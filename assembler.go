@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+
+	. "github.com/wdamron/x64/feats"
 )
 
 // An assembler encodes instructions into a byte slice. Label references are supported, though Finalize
@@ -14,6 +16,7 @@ type Assembler struct {
 	b           buffer
 	labels      []Label
 	relocs      []reloc
+	feats       Feature
 	nextLabelId uint16
 	err         error
 
@@ -25,8 +28,10 @@ type Assembler struct {
 
 // Create a new Assembler for instruction encoding. Output will be encoded to buf. If the encoded output
 // exceeds the length of buf, a new slice will be allocated.
+//
+// All CPU features will be enabled by default, for instruction-matching.
 func NewAssembler(buf []byte) *Assembler {
-	a := Assembler{b: buffer{b: buf, i: 0, sz: len(buf)}}
+	a := Assembler{b: buffer{b: buf, i: 0, sz: len(buf)}, feats: AllFeatures}
 	a.labels = a._labels[:0]
 	a.relocs = a._relocs[:0]
 	return &a
@@ -41,7 +46,16 @@ type instArgsEnc struct {
 	enc  enc    // matched encoding
 	argp []byte // arg-pattern for the matched encoding
 
+	ext extractedArgs
+
 	_args [4]Arg
+}
+
+type extractedArgs struct {
+	r Arg
+	m Arg
+	v Arg
+	i Arg
 }
 
 // Placeholder for memory arguments, to avoid allocations when converting Mem to an interface
@@ -60,8 +74,32 @@ type reloc struct {
 	width uint8 // displacement width
 }
 
+// Get the current, allowable CPU feature-set for instruction-matching.
+//
+// See package x64/feats for all available CPU features.
+func (a *Assembler) Features() Feature { return a.feats }
+
+// Restrict the allowable CPU feature-set for instruction-matching. This will not affect
+// instructions which have already been encoded.
+//
+// See package x64/feats for all available CPU features.
+func (a *Assembler) SetFeatures(enabledFeatures Feature) { a.feats = enabledFeatures }
+
+// Control the allowable CPU feature-set for instruction-matching. This will not affect
+// instructions which have already been encoded.
+//
+// See package x64/feats for all available CPU features.
+func (a *Assembler) DisableFeature(feature Feature) { a.feats &^= feature }
+
+// Control the allowable CPU feature-set for instruction-matching. This will not affect
+// instructions which have already been encoded.
+//
+// See package x64/feats for all available CPU features.
+func (a *Assembler) EnableFeature(feature Feature) { a.feats |= feature }
+
 // Reset an assembler before encoding a new set of instructions. All existing labels will be cleared,
-// the error will be cleared if one exists, and the PC will be reset to 0.
+// the error will be cleared if one exists, and the PC will be reset to 0. The current set of enabled
+// CPU features will be retained.
 //
 // If buf is not nil, the assembler's buffer will be replaced with buf; otherwise, the assembler's
 // buffer will be reset and possibly resized.
@@ -100,7 +138,8 @@ func (a *Assembler) SetPC(pc uint32) {
 // Align the program counter to a power-of-2 offset. Intermediate space will be filled with NOPs.
 func (a *Assembler) AlignPC(pow2 uint8) { a.b.Nop(pow2 - (uint8(a.PC()) & (pow2 - 1))) }
 
-// Encode inst with args to the encoding buffer.
+// Encode inst with args to the encoding buffer. If no matching instruction-encoding is found,
+// ErrNoMatch will be returned.
 func (a *Assembler) Inst(inst Inst, args ...Arg) error {
 	if a.err != nil {
 		return a.err
@@ -128,36 +167,43 @@ func (a *Assembler) Inst(inst Inst, args ...Arg) error {
 }
 
 // Encode inst with a register destination and register source to the encoding buffer.
+// If no matching instruction-encoding is found, ErrNoMatch will be returned.
 func (a *Assembler) RR(inst Inst, dst, src Reg) error {
 	return a.regRegImm(inst, dst, src, nil)
 }
 
 // Encode inst with a register destination, register source, and immediate to the encoding buffer.
+// If no matching instruction-encoding is found, ErrNoMatch will be returned.
 func (a *Assembler) RRI(inst Inst, dst, src Reg, imm ImmArg) error {
 	return a.regRegImm(inst, dst, src, imm)
 }
 
 // Encode inst with a register destination and memory source to the encoding buffer.
+// If no matching instruction-encoding is found, ErrNoMatch will be returned.
 func (a *Assembler) RM(inst Inst, dst Reg, src Mem) error {
 	return a.regMemImm(inst, dst, src, nil, false)
 }
 
 // Encode inst with a memory destination and register source to the encoding buffer.
+// If no matching instruction-encoding is found, ErrNoMatch will be returned.
 func (a *Assembler) MR(inst Inst, dst Mem, src Reg) error {
 	return a.regMemImm(inst, src, dst, nil, true)
 }
 
 // Encode inst with a register destination, memory source, and immediate to the encoding buffer.
+// If no matching instruction-encoding is found, ErrNoMatch will be returned.
 func (a *Assembler) RMI(inst Inst, dst Reg, src Mem, imm ImmArg) error {
 	return a.regMemImm(inst, dst, src, imm, false)
 }
 
 // Encode inst with a memory destination, register source, and immediate to the encoding buffer.
+// If no matching instruction-encoding is found, ErrNoMatch will be returned.
 func (a *Assembler) MRI(inst Inst, dst Mem, src Reg, imm ImmArg) error {
 	return a.regMemImm(inst, src, dst, imm, true)
 }
 
 // Encode inst with a register destination and immediate to the encoding buffer.
+// If no matching instruction-encoding is found, ErrNoMatch will be returned.
 func (a *Assembler) RI(inst Inst, dst Reg, imm ImmArg) error {
 	if a.err != nil {
 		return a.err
@@ -178,6 +224,7 @@ func (a *Assembler) RI(inst Inst, dst Reg, imm ImmArg) error {
 }
 
 // Encode inst with a memory destination and immediate to the encoding buffer.
+// If no matching instruction-encoding is found, ErrNoMatch will be returned.
 func (a *Assembler) MI(inst Inst, dst Mem, imm ImmArg) error {
 	if a.err != nil {
 		return a.err

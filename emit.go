@@ -3,7 +3,7 @@ package x64
 import (
 	"fmt"
 
-	. "github.com/wdamron/x64/flags"
+	. "github.com/wdamron/x64/internal/flags"
 )
 
 const (

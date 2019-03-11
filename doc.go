@@ -51,7 +51,7 @@
 //
 // 		// Assign the address of the assembled/executable code to the code-pointer
 // 		// within the placeholder function-value:
-// 		if err := MakeFunc(&sum, mem); err != nil {
+// 		if err := SetFunctionCode(&sum, mem); err != nil {
 // 			_ = unix.Munmap(mem)
 // 			return nil, err
 // 		}

@@ -1,5 +1,9 @@
 package x64
 
+import (
+	. "github.com/wdamron/x64/feats"
+)
+
 // Get the format bytes for the given arg-pattern identifier:
 func argp(pid uint8) [8]byte { return argpFormats[pid] }
 
@@ -51,7 +55,7 @@ func (inst Inst) encs() []enc {
 type enc struct {
 	op       [4]byte
 	flags    uint32
-	feats    uint32
+	feats    Feature
 	mne      uint16
 	regoplen uint8
 	argp     uint8

@@ -34,38 +34,7 @@ const (
 	X86_ONLY  // instructions available in protected mode, but not long mode
 )
 
-// CPU Features
-const (
-	X64_IMPLICIT uint32 = 0
-	FPU          uint32 = 1 << iota
-	MMX
-	TDNOW
-	SSE
-	SSE2
-	SSE3
-	VMX
-	SSSE3
-	SSE4A
-	SSE41
-	SSE42
-	SSE5
-	AVX
-	AVX2
-	FMA
-	BMI1
-	BMI2
-	TBM
-	RTM
-	INVPCID
-	MPX
-	SHA
-	PREFETCHWT1
-	CYRIX
-	AMD
-)
-
 func FlagName(f uint32) string { return flagNames[f] }
-func FeatName(f uint32) string { return featNames[f] }
 
 var flagNames = map[uint32]string{
 	DEFAULT:    "DEFAULT",
@@ -93,33 +62,4 @@ var flagNames = map[uint32]string{
 	ENC_VM:     "ENC_VM",
 	ENC_MIB:    "ENC_MIB",
 	X86_ONLY:   "X86_ONLY",
-}
-
-var featNames = map[uint32]string{
-	X64_IMPLICIT: "X64_IMPLICIT",
-	FPU:          "FPU",
-	MMX:          "MMX",
-	TDNOW:        "TDNOW",
-	SSE:          "SSE",
-	SSE2:         "SSE2",
-	SSE3:         "SSE3",
-	VMX:          "VMX",
-	SSSE3:        "SSSE3",
-	SSE4A:        "SSE4A",
-	SSE41:        "SSE41",
-	SSE42:        "SSE42",
-	SSE5:         "SSE5",
-	AVX:          "AVX",
-	AVX2:         "AVX2",
-	FMA:          "FMA",
-	BMI1:         "BMI1",
-	BMI2:         "BMI2",
-	TBM:          "TBM",
-	RTM:          "RTM",
-	INVPCID:      "INVPCID",
-	MPX:          "MPX",
-	SHA:          "SHA",
-	PREFETCHWT1:  "PREFETCHWT1",
-	CYRIX:        "CYRIX",
-	AMD:          "AMD",
 }

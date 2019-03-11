@@ -7,7 +7,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func TestMakeFunc(t *testing.T) {
+func TestSetFunctionCode(t *testing.T) {
 	mem, err := unix.Mmap(-1, 0, os.Getpagesize(), unix.PROT_READ|unix.PROT_WRITE, unix.MAP_ANON|unix.MAP_PRIVATE)
 	if err != nil {
 		t.Fatalf("sys/unix.Mmap failed: %v", err)
@@ -31,7 +31,7 @@ func TestMakeFunc(t *testing.T) {
 	}
 
 	sum := (func(a, b int) int)(nil)
-	if err := MakeFunc(&sum, mem); err != nil {
+	if err := SetFunctionCode(&sum, mem); err != nil {
 		t.Fatal(err)
 	}
 

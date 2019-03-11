@@ -6,6 +6,7 @@ import (
 	"testing"
 	"unsafe"
 
+	. "github.com/wdamron/x64/feats"
 	"golang.org/x/arch/x86/x86asm"
 )
 
@@ -171,6 +172,16 @@ func TestEncode(t *testing.T) {
 	}
 	if fmt.Sprintf("%#x", asm.Code()) != "0xc4e26993448a40" {
 		t.Fatalf("vgatherqps xmm0, [rdx+xmm1*4+0x40], xmm2 = %#x != 0xc4e26993448a40", asm.Code())
+	}
+
+	// With CPU features disabled:
+
+	if err := asm.Inst(VSHUFPD, X0, X1, X3, Imm8(1)); err != nil {
+		t.Fatal(err)
+	}
+	asm.DisableFeature(AVX)
+	if err := asm.Inst(VSHUFPD, X0, X1, X3, Imm8(1)); err != ErrNoMatch {
+		t.Fatalf("Expected no matching instruction for VSHUFPD with AVX disabled")
 	}
 }
 

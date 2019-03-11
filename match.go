@@ -1,8 +1,11 @@
 package x64
 
-import "fmt"
+import (
+	"errors"
+)
 
-var _ = fmt.Sprintf
+// ErrNoMatch will be returned if no matching instruction-encoding is found while encoding an instruction.
+var ErrNoMatch = errors.New("No matching instruction-encoding was found")
 
 // Operand type/size patterns
 //
@@ -42,8 +45,12 @@ func (a *Assembler) matchInst() bool {
 	argc := len(args)
 	o := inst.offset()
 	c := inst.count()
+	feats := a.feats
 SEARCH:
 	for ei, e := range encs[o : o+uint16(c)] {
+		if e.feats&feats != e.feats {
+			continue SEARCH
+		}
 		p := argpFormats[e.argp]
 		pl := 0
 		for _, b := range p[:] {
