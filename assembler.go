@@ -56,6 +56,9 @@ type extractedArgs struct {
 	m Arg
 	v Arg
 	i Arg
+
+	imms  []Arg
+	_imms [4]Arg
 }
 
 // Placeholder for memory arguments, to avoid allocations when converting Mem to an interface
@@ -317,8 +320,13 @@ func (a *Assembler) NewLabel() Label {
 // Update the PC assigned to the label using the current PC.
 func (a *Assembler) SetLabel(label Label) { a.labels[label.id].pc = a.PC() }
 
-// Update the PC assigned to the label using the given PC.
-func (a *Assembler) SetLabelPC(label Label, pc uint32) { a.labels[label.id].pc = pc }
+// Get the PC currently assigned to the label.
+func (a *Assembler) GetLabelPC(label LabelArg) uint32 { return a.labels[label.label()].pc }
+
+// Update the PC assigned to the label using the given PC. Finalize must be called to update
+// existing label references after labels have been reassigned to new offsets, though Finalize
+// only needs to be called after a set of updates (i.e. not after each update).
+func (a *Assembler) SetLabelPC(label LabelArg, pc uint32) { a.labels[label.label()].pc = pc }
 
 func (a *Assembler) reloc(labelId uint16, dispSize uint8) {
 	a.relocs = append(a.relocs, reloc{

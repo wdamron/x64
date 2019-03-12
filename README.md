@@ -35,7 +35,8 @@ func CompileSumFunc() (func(a, b int) int, error) {
 
 	asm := NewAssembler(mem)
 
-	// Note: the call frame (arguments and returned value) starts at [RSP+8]
+	// Note: the call frame (arguments and returned value) starts at [RSP+8].
+	// The return address will be stored at [RSP].
 
 	asm.Inst(MOV, RAX, Mem{Base: RSP, Disp: Rel8(8)})   // RAX := a+0(FP)
 	asm.Inst(MOV, RBX, Mem{Base: RSP, Disp: Rel8(16)})  // RBX := b+8(FP)

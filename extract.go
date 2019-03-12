@@ -62,9 +62,12 @@ func (a *Assembler) extractArgs() error {
 			if immc == 4 {
 				panic("too many immediates")
 			}
+			ext._imms[immc] = arg
 			immc++
 		}
 	}
+
+	ext.imms = ext._imms[:immc]
 
 	if regArg >= 0 {
 		if regArg == 0 {

@@ -26,8 +26,6 @@ func (a *Assembler) emitInst() error {
 	}
 
 	enc := a.inst.enc
-	args := a.inst.args
-	argc := len(args)
 
 	opSize, err := a.resizeArgs()
 	if err != nil {
@@ -331,22 +329,21 @@ func (a *Assembler) emitInst() error {
 		ireg := ext.i.(Reg)
 		b := ireg.Num() << 4
 
-		if argc > 0 {
+		if len(ext.imms) > 0 {
 			// if immediates are present, the register argument will be merged into the
 			// first immediate byte.
-			imm, ok := args[0].(Imm8)
+			imm, ok := ext.imms[0].(Imm8)
 			if !ok {
 				return fmt.Errorf("Bad formatting data for %s", inst.Name())
 			}
-			args[0], args[1], args[2], args[3] = args[1], args[2], args[3], nil
-			argc--
+			a.inst.ext.imms = a.inst.ext.imms[1:]
 			b = b | (uint8(imm) & 0xf)
 		}
 		buf.Byte(byte(b))
 	}
 
 	// immediates
-	for _, arg := range args[:argc] {
+	for _, arg := range a.inst.ext.imms {
 		if imm, ok := arg.(ImmArg); ok {
 			switch imm.width() {
 			case 1:
