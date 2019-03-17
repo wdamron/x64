@@ -37,6 +37,10 @@ func NewAssembler(buf []byte) *Assembler {
 	return &a
 }
 
+func (a *Assembler) Nop(length uint8) {
+	a.b.Nop(length)
+}
+
 type instArgsEnc struct {
 	args      []Arg // sized reference to _args
 	inst      Inst
@@ -151,7 +155,9 @@ func (a *Assembler) Inst(inst Inst, args ...Arg) error {
 	for i, arg := range args {
 		if mem, ok := arg.(Mem); ok {
 			if a.inst.memOffset >= 0 {
-				return fmt.Errorf("Multiple memory arguments are not supported")
+				a.err = fmt.Errorf("Multiple memory arguments are not supported")
+				a.inst = instArgsEnc{}
+				return a.err
 			}
 			a.inst._args[i] = memArgPlaceholder{}
 			a.inst.memOffset = i
@@ -162,11 +168,27 @@ func (a *Assembler) Inst(inst Inst, args ...Arg) error {
 	}
 	a.inst.args = a.inst._args[:len(args)]
 	if err := a.emitInst(); err != nil {
+		a.err = err
 		a.inst = instArgsEnc{}
 		return err
 	}
 	a.inst = instArgsEnc{}
 	return nil
+}
+
+// Encode an instruction to load the address of the current goroutine into a register.
+// The instruction will move the address from [FS:-8] to r.
+func (a *Assembler) G(r Reg) error {
+	return a.Inst(MOV, r, Mem{Base: FS, Disp: Rel8(-8)})
+}
+
+// Encode an instruction to load the stack-guard address for the current goroutine into a register.
+//
+// r will contain the stack-guard address for the current goroutine after the instruction executes.
+//
+// g must be a register containing the address of the current goroutine.
+func (a *Assembler) SG(r, g Reg) error {
+	return a.Inst(MOV, r, Mem{Base: g, Disp: Rel8(16)})
 }
 
 // Encode inst with a register destination and register source to the encoding buffer.
@@ -219,6 +241,7 @@ func (a *Assembler) RI(inst Inst, dst Reg, imm ImmArg) error {
 		a.inst.args = a.inst._args[:1]
 	}
 	if err := a.emitInst(); err != nil {
+		a.err = err
 		a.inst = instArgsEnc{}
 		return err
 	}
@@ -240,6 +263,7 @@ func (a *Assembler) MI(inst Inst, dst Mem, imm ImmArg) error {
 		a.inst.args = a.inst._args[:1]
 	}
 	if err := a.emitInst(); err != nil {
+		a.err = err
 		a.inst = instArgsEnc{}
 		return err
 	}
@@ -259,6 +283,7 @@ func (a *Assembler) regRegImm(inst Inst, dst, src Reg, imm ImmArg) error {
 		a.inst.args = a.inst._args[:2]
 	}
 	if err := a.emitInst(); err != nil {
+		a.err = err
 		a.inst = instArgsEnc{}
 		return err
 	}
@@ -285,6 +310,7 @@ func (a *Assembler) regMemImm(inst Inst, r Reg, m Mem, imm ImmArg, swap bool) er
 		a.inst.args = a.inst._args[:2]
 	}
 	if err := a.emitInst(); err != nil {
+		a.err = err
 		a.inst = instArgsEnc{}
 		return err
 	}
@@ -361,17 +387,20 @@ func (a *Assembler) Finalize() error {
 		switch r.width {
 		case 1:
 			if disp > math.MaxInt8 || disp < math.MinInt8 {
-				return fmt.Errorf("Relative label offset exceeds range for 8-bit immediate")
+				a.err = fmt.Errorf("Relative label offset exceeds range for 8-bit immediate")
+				return a.err
 			}
 			a.b.b[r.loc] = byte(disp)
 		case 2:
 			if disp > math.MaxInt16 || disp < math.MinInt16 {
-				return fmt.Errorf("Relative label offset exceeds range for 16-bit immediate")
+				a.err = fmt.Errorf("Relative label offset exceeds range for 16-bit immediate")
+				return a.err
 			}
 			binary.LittleEndian.PutUint16(a.b.b[r.loc:], uint16(disp))
 		case 4:
 			if disp > math.MaxInt32 || disp < math.MinInt32 {
-				return fmt.Errorf("Relative label offset exceeds range for 32-bit immediate")
+				a.err = fmt.Errorf("Relative label offset exceeds range for 32-bit immediate")
+				return a.err
 			}
 			binary.LittleEndian.PutUint32(a.b.b[r.loc:], uint32(disp))
 		}
