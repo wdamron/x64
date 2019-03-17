@@ -107,6 +107,8 @@ func TestEncode(t *testing.T) {
 	checkregimm("mov ax, 0x1", MOV, AX, Imm8(1))
 	check("mov ax, 0x1", MOV, AX, Imm16(1))
 	checkregimm("mov ax, 0x1", MOV, AX, Imm16(1))
+	check("mov rax, 0x7fffffffffffffff", MOV, RAX, Imm64(0x7fffffffffffffff))
+	checkregimm("mov rax, 0x7fffffffffffffff", MOV, RAX, Imm64(0x7fffffffffffffff))
 	check("mov rax, r13", MOV, RAX, R13)
 	checkregreg("mov rax, r13", MOV, RAX, R13)
 	check("add rax, rbx", ADD, RAX, RBX)

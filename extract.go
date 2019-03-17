@@ -37,15 +37,9 @@ func (a *Assembler) extractArgs() error {
 				panic("Multiple memory arguments in format string")
 			}
 			memArg = regc
-			if regc == 4 {
-				panic("too many arguments")
-			}
 			regs[regc] = arg
 			regc++
 		case 'f', 'x', 'r', 'y', 'b':
-			if regc == 4 {
-				panic("too many arguments")
-			}
 			regs[regc] = arg
 			regc++
 		case 'c', 'd', 's':
@@ -53,15 +47,9 @@ func (a *Assembler) extractArgs() error {
 				panic("multiple segment, debug or control registers in format string")
 			}
 			regArg = regc
-			if regc == 4 {
-				panic("too many arguments")
-			}
 			regs[regc] = arg
 			regc++
 		case 'i', 'o':
-			if immc == 4 {
-				panic("too many immediates")
-			}
 			ext._imms[immc] = arg
 			immc++
 		}

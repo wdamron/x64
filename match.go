@@ -222,7 +222,7 @@ SEARCH:
 			case '0': // matches all possible sizes for this operand (w/d for i, w/d/q for r/v, o/h for y/w and everything for m)
 				switch t {
 				case 'i': // immediate
-					if argsz != 2 && argsz != 4 {
+					if argsz != 2 && argsz != 4 && argsz != 8 {
 						continue SEARCH
 					}
 				// k : vsib addressing, 32 bit result, size determines xmm or ymm

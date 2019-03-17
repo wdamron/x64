@@ -371,7 +371,7 @@ type spec struct {
 	op      op
 	reg     int8
 	flags   uint32
-	feats   uint32
+	feats   Feature
 }
 
 type op []byte
@@ -5613,9 +5613,9 @@ var opMap = map[string]specs{
 		spec{"rbib", op{0xB0}, X, SHORT_ARG, X64_IMPLICIT},
 		spec{"rwiw", op{0xB8}, X, WORD_SIZE | SHORT_ARG, X64_IMPLICIT},
 		spec{"rdid", op{0xB8}, X, SHORT_ARG, X64_IMPLICIT},
+		spec{"rqiq", op{0xB8}, X, WITH_REXW | SHORT_ARG, X64_IMPLICIT},
 		spec{"v*i*", op{0xC7}, 0, AUTO_SIZE, X64_IMPLICIT},
 		spec{"vbib", op{0xC6}, 0, DEFAULT, X64_IMPLICIT},
-		spec{"rqiq", op{0xB8}, X, WITH_REXW | SHORT_ARG, X64_IMPLICIT},
 		spec{"cdrd", op{0x0F, 0x22}, X, DEFAULT, X64_IMPLICIT},
 		spec{"cqrq", op{0x0F, 0x22}, X, DEFAULT, X64_IMPLICIT},
 		spec{"rdcd", op{0x0F, 0x20}, X, DEFAULT, X64_IMPLICIT},
