@@ -60,9 +60,9 @@ func (a *Assembler) resizeArgs() (int8, error) {
 
 	if opSize >= 0 {
 		refImmSize := opSize
-		if opSize > 4 {
-			refImmSize = 4
-		}
+		// if opSize > 4 {
+		// 	refImmSize = 4
+		// }
 		if immSize >= 0 && immSize > refImmSize {
 			return -1, fmt.Errorf("Immediate size mismatch")
 		}

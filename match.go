@@ -222,7 +222,7 @@ SEARCH:
 			case '0': // matches all possible sizes for this operand (w/d for i, w/d/q for r/v, o/h for y/w and everything for m)
 				switch t {
 				case 'i': // immediate
-					if argsz > 4 {
+					if argsz != 2 && argsz != 4 {
 						continue SEARCH
 					}
 				// k : vsib addressing, 32 bit result, size determines xmm or ymm
@@ -263,8 +263,7 @@ SEARCH:
 		}
 
 		// all arguments match for the current encoding
-		var matched = e
-		a.inst.enc = matched
+		a.inst.enc = e
 		a.inst.argp = p[:pl]
 		return true
 	}
