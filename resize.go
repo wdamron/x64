@@ -7,6 +7,7 @@ func (a *Assembler) resizeArgs() (int8, error) {
 	argp := a.inst.argp
 	plen := len(a.inst.argp)
 	args := a.inst.args
+	inst := a.inst.inst
 	argc := len(args)
 	hasArg := false
 	opSize := int8(-1)
@@ -30,11 +31,16 @@ func (a *Assembler) resizeArgs() (int8, error) {
 			if mem.Index != 0 && (mem.Index.Family() == REG_XMM || mem.Index.Family() == REG_YMM) {
 				mem.Width = mem.Index.Width()
 			}
-			if opSize >= 0 && opSize != int8(mem.Width) {
-				return -1, fmt.Errorf("Conflicting argument sizes")
+			switch inst {
+			case MOVZX, MOVSX, MOVSXD:
+				// use width of register argument
+			default:
+				if opSize >= 0 && opSize != int8(mem.Width) {
+					return -1, fmt.Errorf("Conflicting argument sizes")
+				}
+				opSize = int8(mem.Width)
+				a.inst.mem = mem
 			}
-			opSize = int8(mem.Width)
-			a.inst.mem = mem
 		default:
 			if imm, ok := arg.(ImmArg); ok {
 				width := int8(imm.width())

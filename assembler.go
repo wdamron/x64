@@ -177,9 +177,9 @@ func (a *Assembler) Inst(inst Inst, args ...Arg) error {
 }
 
 // Encode an instruction to load the address of the current goroutine into a register.
-// The instruction will move the address from [FS:-8] to r.
+// The instruction will move the address from [REG_TLS:-8] to r.
 func (a *Assembler) G(r Reg) error {
-	return a.Inst(MOV, r, Mem{Base: FS, Disp: Rel8(-8)})
+	return a.Inst(MOV, r, Mem{Base: reg_tls, Disp: Rel8(-8)})
 }
 
 // Encode an instruction to load the stack-guard address for the current goroutine into a register.
@@ -344,7 +344,7 @@ func (a *Assembler) NewLabel() Label {
 }
 
 // Update the PC assigned to the label using the current PC.
-func (a *Assembler) SetLabel(label Label) { a.labels[label.id].pc = a.PC() }
+func (a *Assembler) SetLabel(label LabelArg) { a.labels[label.label()].pc = a.PC() }
 
 // Get the PC currently assigned to the label.
 func (a *Assembler) GetLabelPC(label LabelArg) uint32 { return a.labels[label.label()].pc }

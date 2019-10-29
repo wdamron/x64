@@ -107,6 +107,8 @@ func TestEncode(t *testing.T) {
 	checkregimm("mov ax, 0x1", MOV, AX, Imm8(1))
 	check("mov ax, 0x1", MOV, AX, Imm16(1))
 	checkregimm("mov ax, 0x1", MOV, AX, Imm16(1))
+	check("mov eax, 0x7fffffff", MOV, EAX, Imm32(0x7fffffff))
+	checkregimm("mov eax, 0x7fffffff", MOV, EAX, Imm32(0x7fffffff))
 	check("mov rax, 0x7fffffffffffffff", MOV, RAX, Imm64(0x7fffffffffffffff))
 	checkregimm("mov rax, 0x7fffffffffffffff", MOV, RAX, Imm64(0x7fffffffffffffff))
 	check("mov rax, r13", MOV, RAX, R13)
@@ -135,6 +137,21 @@ func TestEncode(t *testing.T) {
 	checkregmem("mov rax, qword ptr [rbx+r15*2+0x8]", MOV, RAX, Mem{Base: RBX, Index: R15, Scale: 2, Disp: Rel8(8)})
 	check("mov rax, qword ptr [rbx+r15*2+0x8]", MOV, RAX, Mem{Base: RBX, Index: R15, Scale: 2, Disp: Rel32(8)})
 	checkregmem("mov rax, qword ptr [rbx+r15*2+0x8]", MOV, RAX, Mem{Base: RBX, Index: R15, Scale: 2, Disp: Rel32(8)})
+
+	check("movzx rax, byte ptr [rbx]", MOVZX, RAX, Mem{Base: RBX, Width: 1})
+	checkregmem("movzx rax, byte ptr [rbx]", MOVZX, RAX, Mem{Base: RBX, Width: 1})
+	check("movzx rax, word ptr [rbx]", MOVZX, RAX, Mem{Base: RBX, Width: 2})
+	checkregmem("movzx rax, word ptr [rbx]", MOVZX, RAX, Mem{Base: RBX, Width: 2})
+
+	check("movsx rax, byte ptr [rbx]", MOVSX, RAX, Mem{Base: RBX, Width: 1})
+	checkregmem("movsx rax, byte ptr [rbx]", MOVSX, RAX, Mem{Base: RBX, Width: 1})
+	check("movsx rax, word ptr [rbx]", MOVSX, RAX, Mem{Base: RBX, Width: 2})
+	checkregmem("movsx rax, word ptr [rbx]", MOVSX, RAX, Mem{Base: RBX, Width: 2})
+	check("movsxd rax, dword ptr [rbx]", MOVSX, RAX, Mem{Base: RBX, Width: 4})
+	checkregmem("movsxd rax, dword ptr [rbx]", MOVSX, RAX, Mem{Base: RBX, Width: 4})
+	check("movsxd rax, dword ptr [rbx]", MOVSXD, RAX, Mem{Base: RBX, Width: 4})
+	checkregmem("movsxd rax, dword ptr [rbx]", MOVSXD, RAX, Mem{Base: RBX, Width: 4})
+
 	check("lea rax, ptr [rbx+r15*2+0x8]", LEA, RAX, Mem{Base: RBX, Index: R15, Scale: 2, Disp: Rel8(8)})
 	checkregmem("lea rax, ptr [rbx+r15*2+0x8]", LEA, RAX, Mem{Base: RBX, Index: R15, Scale: 2, Disp: Rel8(8)})
 	check("lea rax, ptr [rbx+r15*2+0x8]", LEA, RAX, Mem{Base: RBX, Index: R15, Scale: 2, Disp: Rel32(8)})
@@ -316,4 +333,189 @@ func TestRelocs(t *testing.T) {
 	if fmt.Sprintf("%#x", asm.Code()) != "0x4889d84889c3488d05f6ffffff" {
 		t.Fatalf("encoded = %#x != %s", asm.Code(), "0x4889d84889c3488d05f6ffffff")
 	}
+}
+
+func TestBasicInstructionSet(t *testing.T) {
+	asm := NewAssembler(make([]byte, 256))
+	_expect := func(s string) {
+		decoded, err := x86asm.Decode(asm.Code(), 64)
+		if err != nil {
+			t.Fatal(err)
+		}
+		intel := x86asm.IntelSyntax(decoded, 0, nil)
+		if intel != s {
+			t.Logf("encoded inst = %#x\n", asm.Code())
+			t.Fatalf("decoded inst = %s != %s", intel, s)
+		}
+	}
+	check := func(expect string, inst Inst, args ...Arg) {
+		asm.Reset(nil)
+		if err := asm.Inst(inst, args...); err != nil {
+			t.Fatal(expect, "--", err)
+		}
+		_expect(expect)
+	}
+
+	check("push rax", PUSH, RAX)
+	check("push r9", PUSH, R9)
+	check("pop rax", POP, RAX)
+	check("pop r9", POP, R9)
+	check("inc rax", INC, RAX)
+	check("dec rax", DEC, RAX)
+	check("add rax, rbx", ADD, RAX, RBX)
+	check("sub rax, rbx", SUB, RAX, RBX)
+	check("mul rbx", MUL, RBX)   // unsigned
+	check("imul rbx", IMUL, RBX) // signed
+	check("div rbx", DIV, RBX)   // unsigned
+	check("idiv rbx", IDIV, RBX) // signed
+	check("and rax, rbx", AND, RAX, RBX)
+	check("or rax, rbx", OR, RAX, RBX)
+	check("xor rax, rbx", XOR, RAX, RBX)
+	check("neg rax", NEG, RAX)               // two's complement negation
+	check("not rax", NOT, RAX)               // one's complement negation
+	check("shl rax, 0x3", SHL, RAX, Imm8(3)) // logical shift
+	check("shr rax, 0x3", SHR, RAX, Imm8(3)) // logical shift
+	check("sar rax, 0x3", SAR, RAX, Imm8(3)) // arithmetic shift
+	check("rol rax, 0x3", ROL, RAX, Imm8(3))
+	check("ror rax, 0x3", ROR, RAX, Imm8(3))
+	check("cmp rax, 0x1", CMP, RAX, Imm8(1))
+	check("cmp rax, rbx", CMP, RAX, RBX)
+	check("cmp qword ptr [rbx], rax", CMP, Mem{Base: RBX}, RAX)
+	check("cmp rax, qword ptr [rbx]", CMP, RAX, Mem{Base: RBX})
+	check("test rax, 0x1", TEST, RAX, Imm64(1))
+	check("test rax, rbx", TEST, RAX, RBX)
+	check("test qword ptr [rbx], rax", TEST, Mem{Base: RBX}, RAX)
+	check("test qword ptr [rbx], rax", TEST, RAX, Mem{Base: RBX}) // same encoding as above
+
+	check("add rax, qword ptr [rbx]", ADD, RAX, Mem{Base: RBX})
+	check("sub rax, qword ptr [rbx]", SUB, RAX, Mem{Base: RBX})
+	check("mul qword ptr [rbx]", MUL, Mem{Base: RBX})
+	check("imul qword ptr [rbx]", IMUL, Mem{Base: RBX})
+	check("div qword ptr [rbx]", DIV, Mem{Base: RBX})
+	check("idiv qword ptr [rbx]", IDIV, Mem{Base: RBX})
+	check("and rax, qword ptr [rbx]", AND, RAX, Mem{Base: RBX})
+	check("or rax, qword ptr [rbx]", OR, RAX, Mem{Base: RBX})
+	check("xor rax, qword ptr [rbx]", XOR, RAX, Mem{Base: RBX})
+
+	check("mov rax, qword ptr [rbx]", MOV, RAX, Mem{Base: RBX})
+	check("mov qword ptr [rax], rbx", MOV, Mem{Base: RAX}, RBX)
+	check("mov rax, qword ptr [rbx+rcx*1]", MOV, RAX, Mem{Base: RBX, Index: RCX})
+	check("mov rax, qword ptr [rbx+rcx*2]", MOV, RAX, Mem{Base: RBX, Index: RCX, Scale: 2})
+	check("mov rax, qword ptr [rbx+rcx*2+0x8]", MOV, RAX, Mem{Base: RBX, Index: RCX, Scale: 2, Disp: Rel8(8)})
+	check("movzx rax, byte ptr [rbx]", MOVZX, RAX, Mem{Base: RBX, Width: 1})
+	check("movzx rax, word ptr [rbx]", MOVZX, RAX, Mem{Base: RBX, Width: 2})
+	check("movsx rax, byte ptr [rbx]", MOVSX, RAX, Mem{Base: RBX, Width: 1})
+	check("movsx rax, word ptr [rbx]", MOVSX, RAX, Mem{Base: RBX, Width: 2})
+	check("movsxd rax, dword ptr [rbx]", MOVSX, RAX, Mem{Base: RBX, Width: 4})
+	check("movsxd rax, dword ptr [rbx]", MOVSXD, RAX, Mem{Base: RBX, Width: 4})
+	check("movdqa xmm0, xmmword ptr [rdi]", MOVDQA, X0, Mem{Base: RDI, Width: 16})
+	check("movdqa xmmword ptr [rdi], xmm0", MOVDQA, Mem{Base: RDI, Width: 16}, X0)
+	check("movdqu xmm0, xmmword ptr [rdi]", MOVDQU, X0, Mem{Base: RDI, Width: 16})
+	check("movdqu xmmword ptr [rdi], xmm0", MOVDQU, Mem{Base: RDI, Width: 16}, X0)
+}
+
+func TestConditionCodes(t *testing.T) {
+	asm := NewAssembler(make([]byte, 256))
+	_expect := func(s string) {
+		decoded, err := x86asm.Decode(asm.Code(), 64)
+		if err != nil {
+			t.Fatal(err)
+		}
+		intel := x86asm.IntelSyntax(decoded, 0, nil)
+		if intel != s {
+			t.Logf("encoded inst = %#x\n", asm.Code())
+			t.Fatalf("decoded inst = %s != %s", intel, s)
+		}
+	}
+	check := func(expect string, inst Inst, args ...Arg) {
+		asm.Reset(nil)
+		if err := asm.Inst(inst, args...); err != nil {
+			t.Fatal(expect, "--", err)
+		}
+		_expect(expect)
+	}
+
+	check("jb .+0x4", JB, Rel8(4))     // unsigned less-than
+	check("jnb .+0x4", JAE, Rel8(4))   // unsigned greater-than or equal
+	check("jnb .+0x4", JNB, Rel8(4))   // unsigned greater-than or equal
+	check("jz .+0x4", JE, Rel8(4))     // equal
+	check("jz .+0x4", JZ, Rel8(4))     // equal
+	check("jnz .+0x4", JNE, Rel8(4))   // not-equal
+	check("jnz .+0x4", JNZ, Rel8(4))   // not-equal
+	check("jbe .+0x4", JBE, Rel8(4))   // unsigned less-than or equal
+	check("jnbe .+0x4", JA, Rel8(4))   // unsigned greater-than
+	check("jnbe .+0x4", JNBE, Rel8(4)) // unsigned greater-than
+	check("jl .+0x4", JL, Rel8(4))     // signed less-than
+	check("jnl .+0x4", JGE, Rel8(4))   // signed greater-than or equal
+	check("jnl .+0x4", JNL, Rel8(4))   // signed greater-than or equal
+	check("jle .+0x4", JLE, Rel8(4))   // signed less-than or equal
+	check("jnle .+0x4", JG, Rel8(4))   // signed greater-than
+	check("jnle .+0x4", JNLE, Rel8(4)) // signed greater-than
+
+	check("setb al", SETB, AL)     // unsigned less-than
+	check("setnb al", SETAE, AL)   // unsigned greater-than or equal
+	check("setnb al", SETNB, AL)   // unsigned greater-than or equal
+	check("setz al", SETE, AL)     // equal
+	check("setz al", SETZ, AL)     // equal
+	check("setnz al", SETNE, AL)   // not-equal
+	check("setnz al", SETNZ, AL)   // not-equal
+	check("setbe al", SETBE, AL)   // unsigned less-than or equal
+	check("setnbe al", SETA, AL)   // unsigned greater-than
+	check("setnbe al", SETNBE, AL) // unsigned greater-than
+	check("setl al", SETL, AL)     // signed less-than
+	check("setnl al", SETGE, AL)   // signed greater-than or equal
+	check("setnl al", SETNL, AL)   // signed greater-than or equal
+	check("setle al", SETLE, AL)   // signed less-than or equal
+	check("setnle al", SETG, AL)   // signed greater-than
+	check("setnle al", SETNLE, AL) // signed greater-than
+
+	check("cmovb rax, rbx", CMOVB, RAX, RBX)     // unsigned less-than
+	check("cmovnb rax, rbx", CMOVAE, RAX, RBX)   // unsigned greater-than or equal
+	check("cmovnb rax, rbx", CMOVNB, RAX, RBX)   // unsigned greater-than or equal
+	check("cmovz rax, rbx", CMOVE, RAX, RBX)     // equal
+	check("cmovz rax, rbx", CMOVZ, RAX, RBX)     // equal
+	check("cmovnz rax, rbx", CMOVNE, RAX, RBX)   // not-equal
+	check("cmovnz rax, rbx", CMOVNZ, RAX, RBX)   // not-equal
+	check("cmovbe rax, rbx", CMOVBE, RAX, RBX)   // unsigned less-than or equal
+	check("cmovnbe rax, rbx", CMOVA, RAX, RBX)   // unsigned greater-than
+	check("cmovnbe rax, rbx", CMOVNBE, RAX, RBX) // unsigned greater-than
+	check("cmovl rax, rbx", CMOVL, RAX, RBX)     // signed less-than
+	check("cmovnl rax, rbx", CMOVGE, RAX, RBX)   // signed greater-than or equal
+	check("cmovnl rax, rbx", CMOVNL, RAX, RBX)   // signed greater-than or equal
+	check("cmovle rax, rbx", CMOVLE, RAX, RBX)   // signed less-than or equal
+	check("cmovnle rax, rbx", CMOVG, RAX, RBX)   // signed greater-than
+	check("cmovnle rax, rbx", CMOVNLE, RAX, RBX) // signed greater-than
+
+	check("jb .+0x4", Jcc(CCUnsignedLT), Rel8(4))
+	check("jnb .+0x4", Jcc(CCUnsignedGTE), Rel8(4))
+	check("jz .+0x4", Jcc(CCEq), Rel8(4))
+	check("jnz .+0x4", Jcc(CCNeq), Rel8(4))
+	check("jbe .+0x4", Jcc(CCUnsignedLTE), Rel8(4))
+	check("jnbe .+0x4", Jcc(CCUnsignedGT), Rel8(4))
+	check("jl .+0x4", Jcc(CCSignedLT), Rel8(4))
+	check("jnl .+0x4", Jcc(CCSignedGTE), Rel8(4))
+	check("jle .+0x4", Jcc(CCSignedLTE), Rel8(4))
+	check("jnle .+0x4", Jcc(CCSignedGT), Rel8(4))
+
+	check("setb al", Setcc(CCUnsignedLT), AL)
+	check("setnb al", Setcc(CCUnsignedGTE), AL)
+	check("setz al", Setcc(CCEq), AL)
+	check("setnz al", Setcc(CCNeq), AL)
+	check("setbe al", Setcc(CCUnsignedLTE), AL)
+	check("setnbe al", Setcc(CCUnsignedGT), AL)
+	check("setl al", Setcc(CCSignedLT), AL)
+	check("setnl al", Setcc(CCSignedGTE), AL)
+	check("setle al", Setcc(CCSignedLTE), AL)
+	check("setnle al", Setcc(CCSignedGT), AL)
+
+	check("cmovb rax, rbx", Cmovcc(CCUnsignedLT), RAX, RBX)
+	check("cmovnb rax, rbx", Cmovcc(CCUnsignedGTE), RAX, RBX)
+	check("cmovz rax, rbx", Cmovcc(CCEq), RAX, RBX)
+	check("cmovnz rax, rbx", Cmovcc(CCNeq), RAX, RBX)
+	check("cmovbe rax, rbx", Cmovcc(CCUnsignedLTE), RAX, RBX)
+	check("cmovnbe rax, rbx", Cmovcc(CCUnsignedGT), RAX, RBX)
+	check("cmovl rax, rbx", Cmovcc(CCSignedLT), RAX, RBX)
+	check("cmovnl rax, rbx", Cmovcc(CCSignedGTE), RAX, RBX)
+	check("cmovle rax, rbx", Cmovcc(CCSignedLTE), RAX, RBX)
+	check("cmovnle rax, rbx", Cmovcc(CCSignedGT), RAX, RBX)
 }

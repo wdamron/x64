@@ -255,10 +255,10 @@ func (a *Assembler) emitInst() error {
 				if m.Disp != nil {
 					buf.Int32(int32(m.Disp.Int32()))
 					if ld, ok := m.Disp.(LabelDisp); ok {
-						// the displacement will be patched with the relative label-offset + displacement during ProcessRelocs
+						// the displacement will be patched with the relative label-offset + displacement during Finalize
 						a.relocDisp(ld)
 					} else if label, ok := m.Disp.(LabelArg); ok {
-						// the displacement will be patched with the relative label-offset during ProcessRelocs
+						// the displacement will be patched with the relative label-offset during Finalize
 						a.reloc(label.label(), 4)
 					}
 				} else {
@@ -303,10 +303,10 @@ func (a *Assembler) emitInst() error {
 						width = 4
 					}
 					if ld, ok := m.Disp.(LabelDisp); ok {
-						// the displacement will be patched with the relative label-offset + displacement during ProcessRelocs
+						// the displacement will be patched with the relative label-offset + displacement during Finalize
 						a.relocDisp(ld)
 					} else if label, ok := m.Disp.(LabelArg); ok {
-						// the displacement will be patched with the relative label-offset during ProcessRelocs
+						// the displacement will be patched with the relative label-offset during Finalize
 						a.reloc(label.label(), width)
 					}
 				} else if base == 0 {
@@ -376,7 +376,7 @@ func (a *Assembler) emitInst() error {
 			default:
 				return fmt.Errorf("Invalid label displacement (up to 32-bit displacements are supported): %v", width)
 			}
-			// the displacement will be patched with the relative label-offset + displacement during ProcessRelocs
+			// the displacement will be patched with the relative label-offset + displacement during Finalize
 			a.relocDisp(ld)
 		} else if label, ok := arg.(LabelArg); ok {
 			width := label.width()
@@ -390,7 +390,7 @@ func (a *Assembler) emitInst() error {
 			default:
 				return fmt.Errorf("Invalid label displacement (up to 32-bit displacements are supported): %v", width)
 			}
-			// the displacement will be patched with the relative label-offset during ProcessRelocs
+			// the displacement will be patched with the relative label-offset during Finalize
 			a.reloc(label.label(), width)
 		}
 	}

@@ -1835,10 +1835,10 @@ var opMap = map[string]specs{
 		spec{"", op{0xA5}, X, WORD_SIZE | REP, X64_IMPLICIT},
 	},
 	"movsx": {
-		spec{"rqvd", op{0x63}, X, WITH_REXW, X64_IMPLICIT},
 		spec{"rwmb", op{0x0F, 0xBE}, X, WORD_SIZE, X64_IMPLICIT},
 		spec{"r*vb", op{0x0F, 0xBE}, X, AUTO_SIZE, X64_IMPLICIT},
 		spec{"r*vw", op{0x0F, 0xBF}, X, AUTO_REXW | EXACT_SIZE, X64_IMPLICIT},
+		spec{"rqvd", op{0x63}, X, WITH_REXW, X64_IMPLICIT},
 	},
 	"movsxd": {
 		spec{"rqvd", op{0x63}, X, WITH_REXW, X64_IMPLICIT},
