@@ -2,6 +2,8 @@ package x64
 
 import (
 	"errors"
+
+	"github.com/wdamron/x64/feats"
 )
 
 // ErrNoMatch will be returned if no matching instruction-encoding is found while encoding an instruction.
@@ -39,15 +41,14 @@ var ErrNoMatch = errors.New("No matching instruction-encoding was found")
 // f matches an FWORD (6 bytes)
 // 0/* matches all possible sizes for this operand (w/d for i, w/d/q for r/v, o/h for y/w and everything for m)
 // 1/_ matches a lack of size, only useful in combination with m
-func (a *Assembler) matchInst() bool {
-	inst := a.inst.inst
-	args := a.inst.args
+func (matcher *InstMatcher) matchInst(feats feats.Feature, startOffset uint16) bool {
+	inst := matcher.inst
+	args := matcher.args
 	argc := len(args)
-	o := inst.offset()
-	c := inst.count()
-	feats := a.feats
+	o := inst.offset() + startOffset
+	c := uint16(inst.count()) - startOffset
 SEARCH:
-	for ei, e := range encs[o : o+uint16(c)] {
+	for ei, e := range encs[o : o+c] {
 		if e.feats&feats != e.feats {
 			continue SEARCH
 		}
@@ -94,7 +95,7 @@ SEARCH:
 						continue SEARCH
 					}
 				case memArgPlaceholder:
-					mem := a.inst.mem
+					mem := matcher.mem
 					if t != 'v' || (mem.Index != 0 && (mem.Index.Family() == REG_XMM || mem.Index.Family() == REG_YMM)) {
 						continue SEARCH
 					}
@@ -109,7 +110,7 @@ SEARCH:
 						continue SEARCH
 					}
 				case memArgPlaceholder:
-					mem := a.inst.mem
+					mem := matcher.mem
 					if t != 'u' || (mem.Index != 0 && (mem.Index.Family() == REG_XMM || mem.Index.Family() == REG_YMM)) {
 						continue SEARCH
 					}
@@ -124,7 +125,7 @@ SEARCH:
 						continue SEARCH
 					}
 				case memArgPlaceholder:
-					mem := a.inst.mem
+					mem := matcher.mem
 					if t != 'w' || (mem.Index != 0 && (mem.Index.Family() == REG_XMM || mem.Index.Family() == REG_YMM)) {
 						continue SEARCH
 					}
@@ -133,10 +134,10 @@ SEARCH:
 					continue SEARCH
 				}
 			case 'm': // memory
-				if a.inst.memOffset != ai {
+				if matcher.memOffset != ai {
 					continue SEARCH
 				}
-				m := a.inst.mem
+				m := matcher.mem
 				if m.Index != 0 && (m.Index.Family() == REG_XMM || m.Index.Family() == REG_YMM) {
 					continue SEARCH
 				}
@@ -162,10 +163,10 @@ SEARCH:
 			// k : vsib addressing, 32 bit result, size determines xmm or ymm
 			// l : vsib addressing, 64 bit result, size determines xmm or ymm
 			case 'k', 'l':
-				if a.inst.memOffset != ai {
+				if matcher.memOffset != ai {
 					continue SEARCH
 				}
-				m := a.inst.mem
+				m := matcher.mem
 				if m.Index.Family() != REG_XMM && m.Index.Family() != REG_YMM {
 					continue SEARCH
 				}
@@ -258,16 +259,17 @@ SEARCH:
 			}
 		}
 
-		if e.offset() != uint8(ei) || e.instid() != inst.Id() {
+		if e.offset() != uint8(ei)+uint8(startOffset) || e.instid() != inst.Id() {
 			panic("unexpected encoding at offset")
 		}
 
 		// all arguments match for the current encoding
-		a.inst.enc = e
-		a.inst.argp = p[:pl]
+		matcher.encId = uint(o) + uint(ei) + uint(startOffset)
+		matcher.enc = e
+		matcher.argp = p[:pl]
 		return true
 	}
 
-	a.inst.enc = enc{}
+	matcher.enc = enc{}
 	return false
 }

@@ -4,24 +4,24 @@ import "fmt"
 
 // Go through the arguments, check for impossible to encode memory arguments, fill in immediate/displacement
 // size information and return the effective address size
-func (a *Assembler) sanitizeMemArg() (addrSize int8, err error) {
-	if a.inst.memOffset < 0 {
+func (matcher *InstMatcher) sanitizeMemArg() (addrSize int8, err error) {
+	if matcher.memOffset < 0 {
 		return -1, nil
 	}
-	mem := a.inst.mem
-	if addrSize, err = sanitizeMem(&a.inst.mem); err != nil {
+	mem := &matcher.mem
+	if addrSize, err = sanitizeMem(mem); err != nil {
 		return
 	}
 	if (mem.Base != 0 && mem.Base.Family() == REG_RIP) || (mem.Index != 0 && mem.Index.Family() == REG_RIP) {
 		if mem.Disp == nil {
-			a.inst.mem.Disp = Rel32(0)
+			matcher.mem.Disp = Rel32(0)
 		} else if mem.Disp.width() != 4 {
 			if ld, ok := mem.Disp.(LabelDisp); ok {
-				a.inst.mem.Disp = LabelDisp{labelid: ld.labelid, disp: ld.Int32(), dispsz: 4}
+				mem.Disp = LabelDisp{labelid: ld.labelid, disp: ld.Int32(), dispsz: 4}
 			} else if label, ok := mem.Disp.(LabelArg); ok {
-				a.inst.mem.Disp = Label32(uint16(label.label()))
+				mem.Disp = Label32(uint16(label.label()))
 			} else {
-				a.inst.mem.Disp = Rel32(mem.Disp.Int32())
+				mem.Disp = Rel32(mem.Disp.Int32())
 			}
 		}
 	} else if mem.Disp != nil {

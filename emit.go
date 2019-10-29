@@ -15,9 +15,9 @@ const (
 )
 
 func (a *Assembler) checkRex(rexW bool) (bool, error) {
-	argp := a.inst.argp
+	argp := a.match.argp
 	plen := len(argp)
-	args := a.inst.args
+	args := a.match.args
 	argc := len(args)
 	requiresRex := rexW
 	requiresNoRex := false
@@ -35,7 +35,7 @@ func (a *Assembler) checkRex(rexW bool) (bool, error) {
 					requiresRex = true
 				}
 			case memArgPlaceholder:
-				mem := a.inst.mem
+				mem := a.match.mem
 				if mem.Base != 0 {
 					requiresRex = requiresRex || mem.Base.IsExtended()
 				}
@@ -63,7 +63,7 @@ func (a *Assembler) emitRex(buf *buffer, r, rm Arg, rexW bool) {
 	case Reg:
 		baseN = v.Num()
 	case memArgPlaceholder:
-		mem := a.inst.mem
+		mem := a.match.mem
 		if mem.Base != 0 {
 			baseN = mem.Base.Num()
 		}
@@ -83,18 +83,19 @@ func emitMSIB(buf *buffer, mode uint8, r, rm Reg) {
 	buf.Byte(byte(mode<<6) | byte((r.Num()&7)<<3) | byte(rm.Num()&7))
 }
 
-func (a *Assembler) emitVexXop(buf *buffer, e enc, ext extractedArgs, mapSel, pref uint8, rexW, vexL bool) {
+func (a *Assembler) emitVexXop(buf *buffer, e enc, mapSel, pref uint8, rexW, vexL bool) {
 	var reg, index, base, vvvv Reg
+	match := a.match
 
 	var b1, b2 uint8
-	if ext.r != nil {
-		if r, ok := ext.r.(Reg); ok {
+	if match.r != nil {
+		if r, ok := match.r.(Reg); ok {
 			reg = r
 		}
-		if r, ok := ext.m.(Reg); ok {
+		if r, ok := match.m.(Reg); ok {
 			base = r
-		} else if _, ok := ext.m.(memArgPlaceholder); ok {
-			m := a.inst.mem
+		} else if _, ok := match.m.(memArgPlaceholder); ok {
+			m := a.match.mem
 			if m.Base != 0 {
 				base = m.Base
 			}
@@ -105,8 +106,8 @@ func (a *Assembler) emitVexXop(buf *buffer, e enc, ext extractedArgs, mapSel, pr
 		b1 = (mapSel & 0x1f) | ((^reg.Num())&8)<<4 | ((^index.Num())&8)<<3 | ((^base.Num())&8)<<2
 	}
 
-	if ext.v != nil {
-		if r, ok := ext.v.(Reg); ok {
+	if match.v != nil {
+		if r, ok := match.v.(Reg); ok {
 			vvvv = r
 		}
 	}

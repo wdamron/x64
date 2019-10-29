@@ -202,6 +202,33 @@ func TestEncode(t *testing.T) {
 	if err := asm.Inst(VSHUFPD, X0, X1, X3, Imm8(1)); err != ErrNoMatch {
 		t.Fatalf("Expected no matching instruction for VSHUFPD with AVX disabled")
 	}
+
+	// From previously matched:
+
+	matcher := NewInstMatcher()
+	asm.Reset(nil)
+	if err := matcher.Match(ADD, RAX, RBX); err != nil {
+		t.Fatal(err)
+	}
+	if err := asm.InstFrom(matcher); err != nil {
+		t.Fatal(err)
+	}
+	_expect("add rax, rbx")
+	// re-use matched instruction:
+	asm.Reset(nil)
+	if err := asm.InstFrom(matcher); err != nil {
+		t.Fatal(err)
+	}
+	_expect("add rax, rbx")
+	// re-use matcher:
+	asm.Reset(nil)
+	if err := matcher.Match(ADD, RBX, RAX); err != nil {
+		t.Fatal(err)
+	}
+	if err := asm.InstFrom(matcher); err != nil {
+		t.Fatal(err)
+	}
+	_expect("add rbx, rax")
 }
 
 func TestAlignPC(t *testing.T) {
@@ -333,6 +360,23 @@ func TestRelocs(t *testing.T) {
 	if fmt.Sprintf("%#x", asm.Code()) != "0x4889d84889c3488d05f6ffffff" {
 		t.Fatalf("encoded = %#x != %s", asm.Code(), "0x4889d84889c3488d05f6ffffff")
 	}
+}
+
+func TestAllMatches(t *testing.T) {
+	m := NewInstMatcher()
+	expect := func(count int, inst Inst, args ...Arg) {
+		matches, err := m.AllMatches(inst, args...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(matches) != count {
+			t.Fatalf("Expected %v match(es), found %v", count, len(matches))
+		}
+	}
+	expect(2, ADD, RAX, RBX)            // r0r0, r0v0
+	expect(2, ADD, RAX, Imm64(1))       // A0i0, r0i0
+	expect(2, ADD, AL, Imm8(1))         // Abib, rbib
+	expect(1, ADD, RAX, Mem{Base: RBX}) // r0v0
 }
 
 func TestBasicInstructionSet(t *testing.T) {
@@ -518,4 +562,45 @@ func TestConditionCodes(t *testing.T) {
 	check("cmovnl rax, rbx", Cmovcc(CCSignedGTE), RAX, RBX)
 	check("cmovle rax, rbx", Cmovcc(CCSignedLTE), RAX, RBX)
 	check("cmovnle rax, rbx", Cmovcc(CCSignedGT), RAX, RBX)
+}
+
+func TestPrefixes(t *testing.T) {
+	asm := NewAssembler(make([]byte, 256))
+	_expect := func(s string) {
+		decoded, err := x86asm.Decode(asm.Code(), 64)
+		if err != nil {
+			t.Fatal(err)
+		}
+		intel := x86asm.IntelSyntax(decoded, 0, nil)
+		if intel != s {
+			t.Logf("encoded inst = %#x\n", asm.Code())
+			t.Fatalf("decoded inst = %s != %s", intel, s)
+		}
+	}
+	checkLock := func(expect string, inst Inst, args ...Arg) {
+		asm.Reset(nil)
+		if err := asm.Lock(inst, args...); err != nil {
+			t.Fatal(expect, "--", err)
+		}
+		_expect(expect)
+	}
+	checkRep := func(expect string, inst Inst, args ...Arg) {
+		asm.Reset(nil)
+		if err := asm.Rep(inst, args...); err != nil {
+			t.Fatal(expect, "--", err)
+		}
+		_expect(expect)
+	}
+	checkRepne := func(expect string, inst Inst, args ...Arg) {
+		asm.Reset(nil)
+		if err := asm.Repne(inst, args...); err != nil {
+			t.Fatal(expect, "--", err)
+		}
+		_expect(expect)
+	}
+
+	checkLock("lock add qword ptr [rdi], rax", ADD, Mem{Base: RDI}, RAX)
+	checkRep("rep stosq qword ptr [rdi]", STOSQ)
+	checkRep("rep scasq qword ptr [rdi]", SCASQ)
+	checkRepne("repne scasq qword ptr [rdi]", SCASQ)
 }

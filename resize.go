@@ -3,11 +3,11 @@ package x64
 import "fmt"
 
 // Resize all arguments to match the arg-pattern for the matched encoding
-func (a *Assembler) resizeArgs() (int8, error) {
-	argp := a.inst.argp
-	plen := len(a.inst.argp)
-	args := a.inst.args
-	inst := a.inst.inst
+func (matcher *InstMatcher) resizeArgs() (int8, error) {
+	argp := matcher.argp
+	plen := len(matcher.argp)
+	args := matcher.args
+	inst := matcher.inst
 	argc := len(args)
 	hasArg := false
 	opSize := int8(-1)
@@ -27,7 +27,7 @@ func (a *Assembler) resizeArgs() (int8, error) {
 			opSize = width
 		case memArgPlaceholder:
 			hasArg = true
-			mem := a.inst.mem
+			mem := matcher.mem
 			if mem.Index != 0 && (mem.Index.Family() == REG_XMM || mem.Index.Family() == REG_YMM) {
 				mem.Width = mem.Index.Width()
 			}
@@ -39,7 +39,7 @@ func (a *Assembler) resizeArgs() (int8, error) {
 					return -1, fmt.Errorf("Conflicting argument sizes")
 				}
 				opSize = int8(mem.Width)
-				a.inst.mem = mem
+				matcher.mem = mem
 			}
 		default:
 			if imm, ok := arg.(ImmArg); ok {

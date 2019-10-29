@@ -14,13 +14,12 @@ import (
 // ENC_MR:              mr, rmv, rvmi
 // ENC_VM:              vm, mvr
 // these can also be chosen based on the location of a memory argument (except for vm)
-func (a *Assembler) extractArgs() error {
-	argp := a.inst.argp
+func (matcher *InstMatcher) extractArgs() error {
+	argp := matcher.argp
 	plen := len(argp)
-	args := a.inst.args
+	args := matcher.args
 	argc := len(args)
-	flags := a.inst.enc.flags
-	ext := &a.inst.ext
+	flags := matcher.enc.flags
 	memArg := -1
 	regArg := -1
 	var regs [4]Arg
@@ -50,46 +49,46 @@ func (a *Assembler) extractArgs() error {
 			regs[regc] = arg
 			regc++
 		case 'i', 'o':
-			ext._imms[immc] = arg
+			matcher._imms[immc] = arg
 			immc++
 		}
 	}
 
-	ext.imms = ext._imms[:immc]
+	matcher.imms = matcher._imms[:immc]
 
 	if regArg >= 0 {
 		if regArg == 0 {
-			ext.r, ext.m = regs[0], regs[1]
+			matcher.r, matcher.m = regs[0], regs[1]
 		} else {
-			ext.m, ext.r = regs[0], regs[1]
+			matcher.m, matcher.r = regs[0], regs[1]
 		}
 		return nil
 	}
 
 	switch regc {
 	case 1:
-		ext.m = regs[0]
+		matcher.m = regs[0]
 	case 2:
 		if hasFlag(flags, ENC_MR) || memArg == 0 {
-			ext.m, ext.r = regs[0], regs[1]
+			matcher.m, matcher.r = regs[0], regs[1]
 		} else if hasFlag(flags, ENC_VM) {
-			ext.v, ext.m = regs[0], regs[1]
+			matcher.v, matcher.m = regs[0], regs[1]
 		} else {
-			ext.r, ext.m = regs[0], regs[1]
+			matcher.r, matcher.m = regs[0], regs[1]
 		}
 	case 3:
 		if memArg == 1 {
-			ext.r, ext.m, ext.v = regs[0], regs[1], regs[2]
+			matcher.r, matcher.m, matcher.v = regs[0], regs[1], regs[2]
 		} else if hasFlag(flags, ENC_VM) || memArg == 0 {
-			ext.m, ext.v, ext.r = regs[0], regs[1], regs[2]
+			matcher.m, matcher.v, matcher.r = regs[0], regs[1], regs[2]
 		} else {
-			ext.r, ext.v, ext.m = regs[0], regs[1], regs[2]
+			matcher.r, matcher.v, matcher.m = regs[0], regs[1], regs[2]
 		}
 	case 4:
 		if memArg == 2 {
-			ext.r, ext.v, ext.m, ext.i = regs[0], regs[1], regs[2], regs[3]
+			matcher.r, matcher.v, matcher.m, matcher.i = regs[0], regs[1], regs[2], regs[3]
 		} else {
-			ext.r, ext.v, ext.i, ext.m = regs[0], regs[1], regs[2], regs[3]
+			matcher.r, matcher.v, matcher.i, matcher.m = regs[0], regs[1], regs[2], regs[3]
 		}
 	}
 

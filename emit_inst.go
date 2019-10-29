@@ -9,42 +9,35 @@ import (
 
 func (a *Assembler) emitInst() error {
 	buf := &a.b
-	// sanitize memory references, determine address size, and size immediates/displacements if possible
-	addrSize, err := a.sanitizeMemArg()
-	if err != nil {
-		return err
-	}
-	if addrSize < 0 {
-		addrSize = 8
-	}
-
-	inst := a.inst.inst
-
-	// find a matching encoding
-	if ok := a.matchInst(); !ok {
-		return ErrNoMatch
-	}
-
-	enc := a.inst.enc
-
-	opSize, err := a.resizeArgs()
-	if err != nil {
-		return err
-	}
-
-	if err := a.extractArgs(); err != nil {
-		return err
-	}
-
-	ext := a.inst.ext // extracted args
+	match := &a.match
+	addrSize, opSize := match.addrSize, match.opSize
+	inst := match.inst
+	enc := match.enc
 	flags := enc.flags
 	op := enc.op[:enc.oplen()]
 
+	switch a.instPrefix {
+	case lockPrefix:
+		if flags&LOCK == 0 {
+			return fmt.Errorf("LOCK prefix unsupported for %s", inst.Name())
+		}
+		buf.Byte(lockPrefix)
+	case repPrefix:
+		if flags&(REP|REPE) == 0 {
+			return fmt.Errorf("REP/REPE/REPZ prefix unsupported for %s", inst.Name())
+		}
+		buf.Byte(repPrefix)
+	case repnePrefix:
+		if flags&REPE == 0 {
+			return fmt.Errorf("REPNE/REPNZ prefix unsupported for %s", inst.Name())
+		}
+		buf.Byte(repnePrefix)
+	default:
+	}
+
 	// determine if we need an address size override prefix
 	prefAddr := addrSize == 4
-	if addrSize != 4 && addrSize != 8 {
-		return fmt.Errorf("Impossible address size for %s: %v", inst.Name(), addrSize)
-	}
+
 	var prefMod byte
 	var hasPrefMod bool
 	var prefSeg byte
@@ -142,7 +135,7 @@ func (a *Assembler) emitInst() error {
 		// map_sel is stored in the first byte of the opcode
 		mapSel := uint8(op[0])
 		op = op[1:]
-		a.emitVexXop(buf, enc, ext, mapSel, pref, rexW, vexL)
+		a.emitVexXop(buf, enc, mapSel, pref, rexW, vexL)
 	} else {
 		if hasPrefMod {
 			buf.Byte(prefMod)
@@ -151,7 +144,7 @@ func (a *Assembler) emitInst() error {
 			buf.Byte(0x66)
 		}
 		if needRex {
-			a.emitRex(buf, ext.r, ext.m, rexW)
+			a.emitRex(buf, match.r, match.m, rexW)
 		}
 	}
 
@@ -161,8 +154,8 @@ func (a *Assembler) emitInst() error {
 		op = op[:len(op)-1]
 		buf.Bytes(op)
 
-		rm := ext.m
-		ext.m = nil
+		rm := match.m
+		match.m = nil
 		if rm == nil {
 			return fmt.Errorf("Bad formatting data for %s", inst.Name())
 		}
@@ -175,18 +168,18 @@ func (a *Assembler) emitInst() error {
 		buf.Bytes(op)
 	}
 
-	if ext.m != nil {
+	if match.m != nil {
 		// Direct ModRM addressing
-		if r2, ok := ext.m.(Reg); ok {
-			r1, ok := ext.r.(Reg)
+		if r2, ok := match.m.(Reg); ok {
+			r1, ok := match.r.(Reg)
 			if !ok {
 				r1 = Reg(Reg(addrSize)<<16 | REG_LEGACY<<8 | Reg(enc.reg()))
 			}
 			emitMSIB(buf, modDirect, r1, r2)
 			// Indirect ModRM (+SIB) addressing
-		} else if a.inst.memOffset >= 0 {
-			m := a.inst.mem
-			r, ok := ext.r.(Reg)
+		} else if match.memOffset >= 0 {
+			m := match.mem
+			r, ok := match.r.(Reg)
 			if !ok {
 				r = Reg(Reg(addrSize)<<16 | REG_LEGACY<<8 | Reg(enc.reg()))
 			}
@@ -325,25 +318,25 @@ func (a *Assembler) emitInst() error {
 	}
 
 	// register in immediate argument
-	if ext.i != nil {
-		ireg := ext.i.(Reg)
+	if match.i != nil {
+		ireg := match.i.(Reg)
 		b := ireg.Num() << 4
 
-		if len(ext.imms) > 0 {
+		if len(match.imms) > 0 {
 			// if immediates are present, the register argument will be merged into the
 			// first immediate byte.
-			imm, ok := ext.imms[0].(Imm8)
+			imm, ok := match.imms[0].(Imm8)
 			if !ok {
 				return fmt.Errorf("Bad formatting data for %s", inst.Name())
 			}
-			a.inst.ext.imms = a.inst.ext.imms[1:]
+			match.imms = match.imms[1:]
 			b = b | (uint8(imm) & 0xf)
 		}
 		buf.Byte(byte(b))
 	}
 
 	// immediates
-	for _, arg := range a.inst.ext.imms {
+	for _, arg := range match.imms {
 		if imm, ok := arg.(ImmArg); ok {
 			switch imm.width() {
 			case 1:
