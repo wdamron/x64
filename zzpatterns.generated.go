@@ -61,7 +61,6 @@ const (
 	argp_rw
 	argp_v0
 	argp_vb
-	argp_vd
 	argp_A0i0
 	argp_A0r0
 	argp_AbCw
@@ -110,7 +109,6 @@ const (
 	argp_mdyo
 	argp_mhyh
 	argp_moyo
-	argp_mpsw
 	argp_mqrq
 	argp_mqxq
 	argp_mqyo
@@ -155,7 +153,6 @@ const (
 	argp_rqyo
 	argp_rwiw
 	argp_rwmb
-	argp_swmp
 	argp_swmw
 	argp_swrw
 	argp_uqxq
@@ -310,7 +307,6 @@ var argpFormats = [...][8]byte{
 	[8]byte{'r', 'w', 0, 0, 0, 0, 0, 0},
 	[8]byte{'v', '0', 0, 0, 0, 0, 0, 0},
 	[8]byte{'v', 'b', 0, 0, 0, 0, 0, 0},
-	[8]byte{'v', 'd', 0, 0, 0, 0, 0, 0},
 	[8]byte{'A', '0', 'i', '0', 0, 0, 0, 0},
 	[8]byte{'A', '0', 'r', '0', 0, 0, 0, 0},
 	[8]byte{'A', 'b', 'C', 'w', 0, 0, 0, 0},
@@ -359,7 +355,6 @@ var argpFormats = [...][8]byte{
 	[8]byte{'m', 'd', 'y', 'o', 0, 0, 0, 0},
 	[8]byte{'m', 'h', 'y', 'h', 0, 0, 0, 0},
 	[8]byte{'m', 'o', 'y', 'o', 0, 0, 0, 0},
-	[8]byte{'m', 'p', 's', 'w', 0, 0, 0, 0},
 	[8]byte{'m', 'q', 'r', 'q', 0, 0, 0, 0},
 	[8]byte{'m', 'q', 'x', 'q', 0, 0, 0, 0},
 	[8]byte{'m', 'q', 'y', 'o', 0, 0, 0, 0},
@@ -404,7 +399,6 @@ var argpFormats = [...][8]byte{
 	[8]byte{'r', 'q', 'y', 'o', 0, 0, 0, 0},
 	[8]byte{'r', 'w', 'i', 'w', 0, 0, 0, 0},
 	[8]byte{'r', 'w', 'm', 'b', 0, 0, 0, 0},
-	[8]byte{'s', 'w', 'm', 'p', 0, 0, 0, 0},
 	[8]byte{'s', 'w', 'm', 'w', 0, 0, 0, 0},
 	[8]byte{'s', 'w', 'r', 'w', 0, 0, 0, 0},
 	[8]byte{'u', 'q', 'x', 'q', 0, 0, 0, 0},

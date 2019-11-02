@@ -66,7 +66,8 @@ func main() {
 		}
 		x64specs := make([]spec, 0, len(specs))
 		for _, spec := range specs {
-			if spec.flags&X86_ONLY != 0 {
+			// Skip x86-only and cyrix instructions:
+			if spec.flags&X86_ONLY != 0 || spec.feats&CYRIX != 0 {
 				continue
 			}
 			pset[spec.pattern] = -1

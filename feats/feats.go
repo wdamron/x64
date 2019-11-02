@@ -28,6 +28,7 @@ const (
 	MPX
 	SHA
 	PREFETCHWT1
+	// Cyrix instructions are omitted
 	CYRIX
 	AMD
 )
